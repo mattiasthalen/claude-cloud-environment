@@ -5,6 +5,10 @@ set -euo pipefail
 claude plugin marketplace add mattpocock/skills
 claude plugin install mattpocock-skills@mattpocock
 
+# Add caveman plugin
+claude plugin marketplace add JuliusBrussee/caveman
+claude plugin install caveman@caveman
+
 mkdir -p ~/.claude
 
 # CLAUDE.md
