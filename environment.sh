@@ -39,20 +39,25 @@ EOF
 
 # Plugins.
 #
-# Redirect stdin from /dev/null on every plugin command. When this script is run
-# via `curl … | bash`, the script body itself occupies stdin, so `claude plugin
-# install` reads leftover script bytes / EOF for its confirmation + settings
-# merge step and the enable never persists. Feeding /dev/null gives it a clean,
-# empty stdin so the install merges into settings.json non-interactively — no
-# manual enabledPlugins map required.
-
-# Each install is isolated with `|| true` so a single failing step does not
-# abort the rest under `set -e`.
+# `claude plugin install` installs a plugin but does NOT reliably enable it when
+# run non-interactively (e.g. via `curl … | bash`): the plugin lands in the
+# cache with `Status: disabled`, so its skills never load. An explicit
+# `claude plugin enable` after each install flips it on and persists the
+# enabledPlugins entry in settings.json.
+#
+# stdin is redirected from /dev/null on every plugin command so nothing reads
+# leftover script bytes when this file is piped into bash.
+#
+# Each step is isolated with `|| true` so a single failure (e.g. a marketplace
+# being unreachable, or `enable` reporting "already enabled") does not abort the
+# rest under `set -e`.
 
 # Add Matt Pocock's skills
 claude plugin marketplace add mattpocock/skills </dev/null || true
 claude plugin install mattpocock-skills@mattpocock </dev/null || true
+claude plugin enable mattpocock-skills@mattpocock </dev/null || true
 
 # Add caveman plugin
 claude plugin marketplace add JuliusBrussee/caveman </dev/null || true
 claude plugin install caveman@caveman </dev/null || true
+claude plugin enable caveman@caveman </dev/null || true
