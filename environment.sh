@@ -1,14 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# Add Matt Pocock's skills
-claude plugin marketplace add mattpocock/skills
-claude plugin install mattpocock-skills@mattpocock
-
-# Add caveman plugin
-claude plugin marketplace add JuliusBrussee/caveman
-claude plugin install caveman@caveman
-
 mkdir -p ~/.claude
 
 # CLAUDE.md
@@ -44,3 +36,16 @@ cat > ~/.claude/settings.json << 'EOF'
   "disableArtifact": true
 }
 EOF
+
+# Plugins are installed AFTER the config files above so that plugin install
+# can merge its enabledPlugins entries into settings.json. Writing settings.json
+# after installing would clobber those entries, leaving plugins installed but
+# disabled.
+
+# Add Matt Pocock's skills
+claude plugin marketplace add mattpocock/skills
+claude plugin install mattpocock-skills@mattpocock
+
+# Add caveman plugin
+claude plugin marketplace add JuliusBrussee/caveman
+claude plugin install caveman@caveman
