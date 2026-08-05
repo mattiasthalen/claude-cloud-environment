@@ -33,27 +33,26 @@ cat > ~/.claude/settings.json << 'EOF'
   "disableWorkflows": true,
   "disableRemoteControl": true,
   "disableClaudeAiConnectors": true,
-  "disableArtifact": true,
-  "enabledPlugins": {
-    "mattpocock-skills@mattpocock": true,
-    "caveman@caveman": true
-  }
+  "disableArtifact": true
 }
 EOF
 
-# Plugins are installed AFTER the config files above. We enable them explicitly
-# via the enabledPlugins map written above rather than relying on `claude plugin
-# install` to merge those entries into settings.json — that merge did not happen
-# non-interactively, leaving plugins cached but disabled.
+# Plugins.
 #
-# Each marketplace/install is isolated with `|| true` so that a single failing
-# step does not abort the rest of the script (set -e would otherwise skip every
-# subsequent plugin).
+# Redirect stdin from /dev/null on every plugin command. When this script is run
+# via `curl … | bash`, the script body itself occupies stdin, so `claude plugin
+# install` reads leftover script bytes / EOF for its confirmation + settings
+# merge step and the enable never persists. Feeding /dev/null gives it a clean,
+# empty stdin so the install merges into settings.json non-interactively — no
+# manual enabledPlugins map required.
+
+# Each install is isolated with `|| true` so a single failing step does not
+# abort the rest under `set -e`.
 
 # Add Matt Pocock's skills
-claude plugin marketplace add mattpocock/skills || true
-claude plugin install mattpocock-skills@mattpocock || true
+claude plugin marketplace add mattpocock/skills </dev/null || true
+claude plugin install mattpocock-skills@mattpocock </dev/null || true
 
 # Add caveman plugin
-claude plugin marketplace add JuliusBrussee/caveman || true
-claude plugin install caveman@caveman || true
+claude plugin marketplace add JuliusBrussee/caveman </dev/null || true
+claude plugin install caveman@caveman </dev/null || true
