@@ -8,36 +8,6 @@ cat > ~/.claude/CLAUDE.md << 'EOF'
 - Always respond in caveman `full` mode per the caveman plugin ruleset.
 EOF
 
-# Lean Claude Code
-# https://www.aihero.dev/how-to-kill-the-bloat-in-claude-codes-system-prompt
-cat > ~/.claude/settings.json << 'EOF'
-{
-  "permissions": {
-    "defaultMode": "auto",
-    "deny": [
-      "EnterPlanMode",
-      "ExitPlanMode",
-      "DesignSync",
-      "NotebookEdit",
-      "SendMessage",
-      "PushNotification",
-      "RemoteTrigger",
-      "ReportFindings",
-      "ScheduleWakeup",
-      "AskUserQuestion",
-      "CronCreate",
-      "CronDelete",
-      "CronList"
-    ]
-  },
-  "disableBundledSkills": true,
-  "disableWorkflows": true,
-  "disableRemoteControl": true,
-  "disableClaudeAiConnectors": true,
-  "disableArtifact": true
-}
-EOF
-
 # Plugins.
 #
 # `claude plugin install` installs a plugin but does NOT reliably enable it when
@@ -62,3 +32,38 @@ claude plugin enable mattpocock-skills@mattpocock </dev/null || true
 claude plugin marketplace add JuliusBrussee/caveman </dev/null || true
 claude plugin install caveman@caveman </dev/null || true
 claude plugin enable caveman@caveman </dev/null || true
+
+# Lean Claude Code — written LAST.
+# https://www.aihero.dev/how-to-kill-the-bloat-in-claude-codes-system-prompt
+#
+# The `claude plugin` commands above rewrite ~/.claude/settings.json to persist
+# enabledPlugins / marketplaces, and that rewrite drops any keys they don't
+# manage — including permissions.defaultMode. Writing settings.json here, after
+# every plugin command has run, is what makes "auto" survive into the session.
+# jq merges into whatever the plugin steps left behind so their entries are kept.
+SETTINGS=~/.claude/settings.json
+[ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
+tmp=$(mktemp)
+jq '
+  .permissions.defaultMode = "auto"
+  | .permissions.deny = [
+      "EnterPlanMode",
+      "ExitPlanMode",
+      "DesignSync",
+      "NotebookEdit",
+      "SendMessage",
+      "PushNotification",
+      "RemoteTrigger",
+      "ReportFindings",
+      "ScheduleWakeup",
+      "AskUserQuestion",
+      "CronCreate",
+      "CronDelete",
+      "CronList"
+    ]
+  | .disableBundledSkills = true
+  | .disableWorkflows = true
+  | .disableRemoteControl = true
+  | .disableClaudeAiConnectors = true
+  | .disableArtifact = true
+' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
