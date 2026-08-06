@@ -13,6 +13,7 @@ EOF
 cat > ~/.claude/settings.json << 'EOF'
 {
   "permissions": {
+    "defaultMode": "auto",
     "deny": [
       "EnterPlanMode",
       "ExitPlanMode",
