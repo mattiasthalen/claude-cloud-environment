@@ -5,7 +5,7 @@ mkdir -p ~/.claude
 
 # CLAUDE.md
 cat > ~/.claude/CLAUDE.md << 'EOF'
-- When reporting information to me, be extremely concise and sacrifice grammar for the sake of concision.
+- Always respond in caveman `full` mode per the caveman plugin ruleset, unless I say "stop caveman" or "normal mode".
 EOF
 
 # Lean Claude Code
