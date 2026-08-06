@@ -5,7 +5,7 @@ mkdir -p ~/.claude
 
 # CLAUDE.md
 cat > ~/.claude/CLAUDE.md << 'EOF'
-- Always respond in caveman `full` mode per the caveman plugin ruleset, unless I say "stop caveman" or "normal mode".
+- Always respond in caveman `full` mode per the caveman plugin ruleset.
 EOF
 
 # Lean Claude Code
