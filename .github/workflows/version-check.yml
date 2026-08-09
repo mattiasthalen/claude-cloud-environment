@@ -17,11 +17,29 @@ jobs:
           fetch-depth: 0
 
       - name: Check SCRIPT_VERSION against existing tags
+        env:
+          # The PR's merge base. A pull_request run checks out a merge commit,
+          # so this is what "before the PR" means here.
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           version=$(sed -n 's/^SCRIPT_VERSION=//p' environment.sh | head -n 1)
           if [ -z "$version" ]; then
             echo "no SCRIPT_VERSION found in environment.sh" >&2
             exit 1
           fi
+
+          # A PR that does not touch SCRIPT_VERSION is not a release and has
+          # nothing to check: the current version equals the tag it was already
+          # released under, which is exactly what the monotonicity rule rejects.
+          # Without this guard every documentation-only PR would fail once the
+          # matching tag exists. A PR that does bump the constant still goes
+          # through the full check below.
+          base_version=$(git show "${BASE_SHA}:environment.sh" 2>/dev/null \
+            | sed -n 's/^SCRIPT_VERSION=//p' | head -n 1 || true)
+          if [ -n "$base_version" ] && [ "$version" = "$base_version" ]; then
+            echo "SCRIPT_VERSION unchanged at ${version} — not a release, nothing to check"
+            exit 0
+          fi
+
           mapfile -t tags < <(git tag -l 'v*')
           ./scripts/check-version.sh "$version" "${tags[@]}"
