@@ -84,11 +84,14 @@ Do not call `/implement` — its `disable-model-invocation: true` makes the Skil
 
 Never two merges in flight. For each agent that reports **landed**, in completion order:
 
-1. `git merge --no-ff issue/NN` onto `task/<slug>`.
-2. On conflict, resolve it with `/resolving-merge-conflicts`.
+1. Rebase the ticket branch onto the integration branch, then fast-forward it in:
+   `git rebase task/<slug> issue/NN && git merge --ff-only issue/NN`.
+2. On conflict, resolve it with `/resolving-merge-conflicts` — during the rebase, so the resolution lands in the ticket's own commits.
 3. Run the full check commands on the integration branch.
 4. **Green** — keep it. Close #NN per the tracker. Remove the worktree (`git worktree remove`) and delete `issue/NN`.
-5. **Red** — the integration branch stays green, always. Fix it in place if the break is small and obviously yours to fix; otherwise `git reset --hard` back to the pre-merge commit, reopen the ticket, comment the failure on #NN, and treat it as parked.
+5. **Red** — the integration branch stays green, always. Fix it in place if the break is small and obviously yours to fix; otherwise `git reset --hard` back to the pre-integration commit, reopen the ticket, comment the failure on #NN, and treat it as parked.
+
+Rebase-and-fast-forward, never `--no-ff`. A merge commit per ticket makes the integration branch un-rebasable, and a repo that allows only rebase merges will refuse the resulting pull request — with the branch's history, not its content, as the reason. The first ticket of a wave fast-forwards on its own; the later ones need the rebase because the branch they were cut from has moved.
 
 Agents that report **parked** are already carrying a `needs-info` comment; leave their branch and worktree in place and move on.
 
