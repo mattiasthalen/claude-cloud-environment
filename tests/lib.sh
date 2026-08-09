@@ -18,6 +18,7 @@ HARNESS_STATUS=""
 HARNESS_STDOUT=""
 HARNESS_STDERR=""
 HARNESS_SETTINGS=""
+HARNESS_TOOLS=""
 HARNESS_ARGS_DESC=""
 _harness_pre_file=""
 
@@ -121,6 +122,10 @@ harness_run() {
   if [ -f "${out}/settings.json" ]; then
     HARNESS_SETTINGS=$(cat "${out}/settings.json")
   fi
+  HARNESS_TOOLS=""
+  if [ -f "${out}/tools" ]; then
+    HARNESS_TOOLS=$(cat "${out}/tools")
+  fi
 }
 
 # The version the script under test reports, read from the script itself so a
@@ -132,6 +137,18 @@ harness_script_version() {
     harness_fail "could not read SCRIPT_VERSION from environment.sh"
   fi
   printf '%s' "${version}"
+}
+
+# harness_pin <VARIABLE>
+# A pin read from the lockfile block of the script under test, so a version roll
+# is one diff hunk there rather than an edit in every case that names a version.
+harness_pin() {
+  local name=$1 value
+  value=$(sed -n "s/^${name}=\(.*\)$/\1/p" "${REPO_ROOT}/environment.sh" | head -n 1)
+  if [ -z "${value}" ]; then
+    harness_fail "could not read ${name} from the lockfile block of environment.sh"
+  fi
+  printf '%s' "${value}"
 }
 
 # ---------------------------------------------------------------------------
@@ -170,6 +187,23 @@ assert_output_contains() {
   local needle=$1
   printf '%s\n%s\n' "${HARNESS_STDOUT}" "${HARNESS_STDERR}" | grep -qF -- "${needle}" ||
     harness_fail "expected output to contain '${needle}'"
+}
+
+assert_output_lacks() {
+  local needle=$1
+  printf '%s\n%s\n' "${HARNESS_STDOUT}" "${HARNESS_STDERR}" | grep -qF -- "${needle}" &&
+    harness_fail "expected output not to contain '${needle}'"
+  return 0
+}
+
+# assert_tool_on_path <binary>
+# The binary the run left on PATH, as the container reports it — presence proves
+# a file landed, which is a different claim from the script's own verification
+# line saying the tool ran.
+assert_tool_on_path() {
+  local tool=$1
+  printf '%s\n' "${HARNESS_TOOLS}" | grep -q "^${tool} " ||
+    harness_fail "expected '${tool}' on PATH after the run, found: ${HARNESS_TOOLS:-<none>}"
 }
 
 # assert_settings_jq <jq-filter> <expected-output>

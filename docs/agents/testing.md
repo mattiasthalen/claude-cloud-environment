@@ -67,14 +67,17 @@ From `tests/lib.sh`:
 | `harness_run [args...]` | Run the script with that argument list in a fresh container. |
 | `harness_pre <<'PRE' … PRE` | Snippet run in the container before the script, to arrange starting state. Call before `harness_run`. |
 | `harness_script_version` | `SCRIPT_VERSION` read from the script, so a bump needs no case edits. |
+| `harness_pin <VARIABLE>` | A pin read from the lockfile block, so a version roll needs no case edits. |
 | `assert_status <code>` | Exit code. |
 | `assert_first_line <line>` | First line of stdout. |
 | `assert_output_contains <text>` | Fixed-string match over stdout and stderr. |
+| `assert_output_lacks <text>` | The same match, negated — for asserting a phase did *not* run. |
+| `assert_tool_on_path <binary>` | The binary is on PATH in the container after the run. |
 | `assert_settings_jq <filter> <expected>` | Run a `jq` filter over the `settings.json` the run left behind; fails if it is missing or does not parse. |
 | `harness_fail <message>` | Fail with a custom message. |
 
-After `harness_run`, `HARNESS_STATUS`, `HARNESS_STDOUT`, `HARNESS_STDERR` and
-`HARNESS_SETTINGS` hold the raw result if a case needs something the assertions
+After `harness_run`, `HARNESS_STATUS`, `HARNESS_STDOUT`, `HARNESS_STDERR`,
+`HARNESS_SETTINGS` and `HARNESS_TOOLS` hold the raw result if a case needs something the assertions
 above do not cover. Every assertion failure prints the case name, the
 invocation, the exit code and the script's stdout and stderr.
 
