@@ -41,8 +41,7 @@ done
 # binary on PATH does not say which repository it came from, and for kubectl
 # that is the whole question: the Google Cloud repository publishes an
 # epoch-versioned `kubectl` that is a different package at the same command.
-: > /out/packages
-dpkg-query -W -f '${Package} ${Version}\n' 2> /dev/null >> /out/packages || true
+dpkg-query -W -f '${Package} ${Version}\n' > /out/packages 2> /dev/null
 
 # Always zero: a failing script is a result to report, not a harness error.
 exit 0

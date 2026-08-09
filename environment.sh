@@ -264,7 +264,7 @@ setup_repo_atlassian() {
 # reason as the Kubernetes one: apt reads a `signed-by` file in that form
 # directly, which keeps `gnupg` off the prerequisite list.
 setup_repo_google() {
-  local url=https://packages.cloud.google.com/apt
+  local url="https://packages.cloud.google.com/apt"
   local keyring=/etc/apt/keyrings/cloud.google.asc
 
   mkdir -p /etc/apt/keyrings || return 1
