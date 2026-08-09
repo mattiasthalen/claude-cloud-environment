@@ -1,0 +1,77 @@
+name: release
+
+# Releasing is bumping SCRIPT_VERSION and pushing to main. This workflow reads
+# the constant and, when no tag of that name exists yet, cuts the tag at the
+# pushed commit and a GitHub Release for it. An unchanged constant is therefore
+# a silent no-op — the tag already exists — so ordinary documentation commits
+# produce no tags and no noise. `main` is deployed nowhere; only tags are.
+on:
+  push:
+    branches: [main]
+
+# Creating a tag and a Release writes to the repository's contents.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Tags are both the skip condition and the version check's comparison
+          # set, and a shallow clone carries none.
+          fetch-depth: 0
+
+      - name: Read SCRIPT_VERSION
+        id: version
+        run: |
+          version=$(sed -n 's/^SCRIPT_VERSION=//p' environment.sh | head -n 1)
+          if [ -z "$version" ]; then
+            echo "no SCRIPT_VERSION found in environment.sh" >&2
+            exit 1
+          fi
+          echo "version=${version}" >>"$GITHUB_OUTPUT"
+          echo "tag=v${version}" >>"$GITHUB_OUTPUT"
+
+      - name: Skip when the tag already exists
+        id: existing
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          tag="$TAG"
+          if [ -n "$(git tag -l "$tag")" ]; then
+            echo "${tag} already exists — nothing to release"
+            echo "exists=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >>"$GITHUB_OUTPUT"
+          fi
+
+      # The same seam the pull_request workflow uses, rather than a second copy
+      # of the logic that could disagree with it. CD re-checks because nothing
+      # forces pull requests on this repo.
+      - name: Check the version is increasing
+        if: steps.existing.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mapfile -t tags < <(git tag -l 'v*')
+          ./scripts/check-version.sh "$VERSION" "${tags[@]}"
+
+      # The Release body is the bump commit's message, so a maintainer reading
+      # the Release can tell whether a roll is urgent or can wait. GitHub's
+      # generated notes are appended by the API when a body is supplied
+      # alongside --generate-notes.
+      - name: Create the tag and the Release
+        if: steps.existing.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          body="${RUNNER_TEMP}/release-body.md"
+          git log -1 --format=%B "$GITHUB_SHA" >"$body"
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$TAG" \
+            --notes-file "$body" \
+            --generate-notes
