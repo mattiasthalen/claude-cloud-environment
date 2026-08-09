@@ -1,0 +1,27 @@
+name: version check
+
+on:
+  pull_request:
+
+# The check only reads the tree and the tag set.
+permissions:
+  contents: read
+
+jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Tags are the comparison set, and a shallow clone carries none.
+          fetch-depth: 0
+
+      - name: Check SCRIPT_VERSION against existing tags
+        run: |
+          version=$(sed -n 's/^SCRIPT_VERSION=//p' environment.sh | head -n 1)
+          if [ -z "$version" ]; then
+            echo "no SCRIPT_VERSION found in environment.sh" >&2
+            exit 1
+          fi
+          mapfile -t tags < <(git tag -l 'v*')
+          ./scripts/check-version.sh "$version" "${tags[@]}"
