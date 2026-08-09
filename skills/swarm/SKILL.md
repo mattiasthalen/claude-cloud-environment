@@ -1,6 +1,6 @@
 ---
 name: swarm
-description: "Implement a parent issue's child tickets in parallel — dispatch one isolated agent per unblocked ticket, integrate sequentially, re-query the frontier. Modes: foreground, background."
+description: "Implement a parent issue's child tickets in parallel, one agent per unblocked ticket."
 disable-model-invocation: true
 ---
 
@@ -14,10 +14,12 @@ Adapted from the proposal by [@berkaykiran](https://github.com/berkaykiran) in [
 /swarm <parent-issue> [foreground|background] [model] [effort]
 ```
 
-Every argument after the parent is optional and positional. Defaults: `background`, this session's model, `normal` effort. Read all four from the invocation — settle nothing by asking, and reach for no interactive prompt.
+Every argument after the parent is optional and positional. Defaults: `background`, this session's model, `normal` effort. Read all four from the invocation and proceed on them — swarm settles its own configuration from the command line alone.
 
 - **`foreground`** — dispatch agents synchronously, one wave at a time. Each wave's work is visible in this session and integrates as the wave finishes.
 - **`background`** — dispatch agents detached. Integrate each branch as its completion notification arrives.
+
+A mode argument that is neither word is a stop: report the two valid modes and dispatch nothing. Guessing which one the user meant risks running a whole graph in the wrong mode.
 
 ## Preflight
 
@@ -34,13 +36,15 @@ The frontier is only as good as your reading of the tracker, and a wrong reading
 
 `task/<slug>`, cut from the default branch, where `<slug>` derives from the parent issue's title. Every ticket branch is cut from it and every merge lands on it. The default branch stays user-controlled — swarm never merges there and never pushes there.
 
-Note the repo's check commands now (typecheck, test, lint — from `package.json` scripts, `Makefile`, CI config, or `CONTRIBUTING.md`). Every subagent and every integration uses the same ones.
+Note the repo's own check commands now — typecheck, test, lint, as its task runner and CI config define them. Every subagent and every integration uses the same ones. A repo with no checks to run is fine; say so once and skip the green gate below.
 
 ### 2. Resolve the frontier
 
-The **frontier** is every open child ticket whose blockers are all closed, per the blocking semantics the tracker doc defines. Tickets already claimed by someone else are not on it.
+The **frontier** is every open child ticket whose blockers are all closed, per the blocking semantics the tracker doc defines. Three kinds of ticket are off it: tickets claimed by someone else, tickets swarm has already dispatched and is still waiting on (**in flight**), and tickets parked on a question.
 
-An empty frontier with open children left means the graph is deadlocked on something outside swarm's reach — report the blocked tickets and their open blockers, and stop.
+Keep the in-flight set explicitly — in `background` mode agents outlive the wave that dispatched them, and a re-query that forgets them dispatches a second agent at a ticket that already has one.
+
+An empty frontier while nothing is in flight, with open children left, means the graph is deadlocked on something outside swarm's reach — report the blocked tickets and their open blockers, and stop.
 
 ### 3. Dispatch
 
@@ -66,7 +70,7 @@ Claim each ticket through the tracker's claim operation as it is dispatched.
 >
 > Then use `/code-review` against `task/<slug>` and act on its findings.
 >
-> Commit to `issue/NN` with a message referencing #NN. Do not merge, do not rebase, do not push, do not open a pull request.
+> Commit to `issue/NN` with a message referencing #NN, and leave it there — local, unmerged, unpushed. Integration is the orchestrator's job.
 >
 > **Parking a question:** if a decision is genuinely unsettled — one you'd have to guess at, where a wrong guess means rework — stop implementing, comment the question on #NN, label #NN `needs-info`, and report back that the ticket is parked with the question text. Do not guess.
 >
@@ -90,9 +94,9 @@ Agents that report **parked** are already carrying a `needs-info` comment; leave
 
 ### 5. Re-query and repeat
 
-After every integration, resolve the frontier again — a closed ticket unblocks its dependents. Dispatch the new frontier and loop from step 3. A one-ticket wave is a normal wave: dispatch the one agent and carry on.
+After every integration, drop that ticket from the in-flight set and resolve the frontier again — a closed ticket unblocks its dependents. Dispatch the new frontier and loop from step 3. A one-ticket wave is a normal wave: dispatch the one agent and carry on.
 
-The run ends when the frontier is empty. Every remaining open ticket is then either parked on a question or blocked by one that is.
+The run ends when the frontier is empty **and** the in-flight set is empty. Every remaining open ticket is then either parked on a question or blocked by one that is.
 
 ### 6. Report
 
