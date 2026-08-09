@@ -258,6 +258,23 @@ setup_repo_atlassian() {
   chmod 644 /etc/apt/sources.list.d/acli.list
 }
 
+# Google Cloud: one repository for every gcloud package, base and components
+# alike — the deb ships with the component manager disabled, so a component is
+# an ordinary apt package from here. The armoured key is used as-is for the same
+# reason as the Kubernetes one: apt reads a `signed-by` file in that form
+# directly, which keeps `gnupg` off the prerequisite list.
+setup_repo_google() {
+  local url=https://packages.cloud.google.com/apt
+  local keyring=/etc/apt/keyrings/cloud.google.asc
+
+  mkdir -p /etc/apt/keyrings || return 1
+  curl -fsSL "${url}/doc/apt-key.gpg" -o "${keyring}" || return 1
+  chmod 644 "${keyring}" || return 1
+  echo "deb [signed-by=${keyring}] ${url} cloud-sdk main" \
+    > /etc/apt/sources.list.d/google-cloud-sdk.list || return 1
+  chmod 644 /etc/apt/sources.list.d/google-cloud-sdk.list
+}
+
 # Nothing to install means nothing to configure: with every requested tool
 # already present, a re-run touches no repository and runs no apt at all.
 if [ ${#apt_pkgs[@]} -gt 0 ]; then
@@ -270,6 +287,7 @@ if [ ${#apt_pkgs[@]} -gt 0 ]; then
     seen_repos="${seen_repos} ${repo}"
 
     case "${repo}" in
+      google) run_step "repository setup: google cloud" setup_repo_google ;;
       k8s) run_step "repository setup: kubernetes" setup_repo_k8s ;;
       microsoft) run_step "repository setup: microsoft" setup_repo_microsoft ;;
       atlassian) run_step "repository setup: atlassian" setup_repo_atlassian ;;
@@ -445,14 +463,18 @@ verify_version() {
   FAILED_STEPS+=("verify ${tool}")
 }
 
-# verify_invocable <tool> <command...>
-# The row for a tool with no pin to assert against: exit zero and non-empty
-# output, no version comparison. acli is the script's one unpinned tool, so
-# there is no expected string to compare with, and inventing one against a
-# moving upstream would turn any acli release into a session-blocking failure
-# for every environment that requested it. Invoking it still catches the failure
-# that matters here — a build that installed but will not start.
-verify_invocable() {
+# verify_runs <tool> <command...>
+# One row for a tool whose printed version is not comparable to a pin. Two kinds
+# of tool land here: an add-on, which reports the version of what it plugs into
+# rather than the apt version it was installed at, and acli, which has no pin to
+# compare with at all — inventing one against a moving upstream would turn any
+# acli release into a session-blocking failure for every environment that
+# requested it. Exit zero and non-empty output is the whole assertion; for the
+# add-on, which build landed is already guaranteed by the pin on the package.
+# Invoking still catches the failure that matters here — a build that installed
+# but will not start. The row carries the first line of what the tool printed,
+# so it stays one line like every other.
+verify_runs() {
   local tool=$1 actual
   shift
 
@@ -462,7 +484,7 @@ verify_invocable() {
     return 0
   fi
 
-  echo "✓ ${tool} ${actual}"
+  echo "✓ ${tool} ${actual%%$'\n'*}"
 }
 
 az_reported_version() {
@@ -471,6 +493,10 @@ az_reported_version() {
 
 snow_reported_version() {
   snow --version | sed -n 's/^Snowflake CLI version: *//p'
+}
+
+gcloud_reported_version() {
+  gcloud version | sed -n 's/^Google Cloud SDK //p'
 }
 
 kubectl_reported_version() {
@@ -506,10 +532,12 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
   fi
 
   case "${tool}" in
-    az)      verify_version az "${AZ_VERSION%%-*}" az_reported_version ;;
-    kubectl) verify_version kubectl "v${KUBECTL_VERSION%%-*}" kubectl_reported_version ;;
-    snow)    verify_version snow "${SNOW_VERSION}" snow_reported_version ;;
-    acli)    verify_invocable acli acli --version ;;
+    gcloud)                 verify_version gcloud "${GCLOUD_VERSION%%-*}" gcloud_reported_version ;;
+    gke-gcloud-auth-plugin) verify_runs gke-gcloud-auth-plugin gke-gcloud-auth-plugin --version ;;
+    az)                     verify_version az "${AZ_VERSION%%-*}" az_reported_version ;;
+    kubectl)                verify_version kubectl "v${KUBECTL_VERSION%%-*}" kubectl_reported_version ;;
+    snow)                   verify_version snow "${SNOW_VERSION}" snow_reported_version ;;
+    acli)                   verify_runs acli acli --version ;;
   esac
 done
 
