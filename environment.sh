@@ -77,6 +77,10 @@ report_failures() {
 #   3. one arm in the verification block at the bottom of this file,
 #   4. one repository setup arm — only if the vendor is not already used.
 #
+# Arms append through `want_apt` / `want_uv` rather than touching the arrays
+# directly, so the presence guard is applied in one place instead of once per
+# tool.
+#
 # The `case` below only appends; it installs nothing. Collecting the whole
 # selection before installing anything is what makes the outcome independent of
 # the order the tools were listed in, which is load-bearing: the Google Cloud
@@ -90,17 +94,46 @@ requested_tools=()
 unknown_tools=()
 repos=()
 apt_pkgs=()
+apt_tools=()
 uv_pkgs=()
+
+# Presence guard. A tool already on PATH contributes nothing to the install —
+# that, and not a swallowed exit code, is what makes a re-run a no-op. The guard
+# deliberately does not look at the version and does not self-heal a wrong one: a
+# mismatch on a clean base is a condition to surface, and the verification block
+# at the bottom of this file is what surfaces it.
+tool_present() {
+  command -v "$1" > /dev/null 2>&1
+}
+
+# want_apt <tool> <repo> <package[=pin]>
+# Records the vendor repository the tool needs and the package the batched
+# install should carry. apt_tools stays parallel to the selection so a failed
+# install can be attributed back to the tools it was carrying.
+want_apt() {
+  local tool=$1 repo=$2 pkg=$3
+  tool_present "${tool}" && return 0
+  repos+=("${repo}")
+  apt_pkgs+=("${pkg}")
+  apt_tools+=("${tool}")
+}
+
+# want_uv <tool> <requirement>
+want_uv() {
+  local tool=$1 requirement=$2
+  tool_present "${tool}" && return 0
+  uv_pkgs+=("${requirement}")
+}
 
 for tool in "$@"; do
   requested_tools+=("${tool}")
   case "${tool}" in
-    gcloud)                 repos+=(google);    apt_pkgs+=("google-cloud-cli=${GCLOUD_VERSION}") ;;
-    gke-gcloud-auth-plugin) repos+=(google);    apt_pkgs+=("google-cloud-cli-gke-gcloud-auth-plugin=${GCLOUD_VERSION}") ;;
-    az)                     repos+=(microsoft); apt_pkgs+=("azure-cli=${AZ_VERSION}") ;;
-    kubectl)                repos+=(k8s);       apt_pkgs+=("kubectl=${KUBECTL_VERSION}") ;;
-    snow)                                       uv_pkgs+=("snowflake-cli==${SNOW_VERSION}") ;;
-    acli)                   repos+=(atlassian); apt_pkgs+=(acli) ;;
+    gcloud)                 want_apt gcloud google "google-cloud-cli=${GCLOUD_VERSION}" ;;
+    gke-gcloud-auth-plugin) want_apt gke-gcloud-auth-plugin google "google-cloud-cli-gke-gcloud-auth-plugin=${GCLOUD_VERSION}" ;;
+    az)                     want_apt az microsoft "azure-cli=${AZ_VERSION}" ;;
+    kubectl)                want_apt kubectl k8s "kubectl=${KUBECTL_VERSION}" ;;
+    snow)                   want_uv snow "snowflake-cli==${SNOW_VERSION}" ;;
+    acli)                   want_apt acli atlassian acli ;;
     *)                      unknown_tools+=("${tool}") ;;
   esac
 done
@@ -133,6 +166,84 @@ if tool_requested gke-gcloud-auth-plugin && ! tool_requested gcloud; then
 fi
 
 report_failures
+
+# ---------------------------------------------------------------------------
+# Install
+#
+# Phased, not per-tool: every unique vendor repository named by the selection is
+# set up once, then one `apt-get update` and one `apt-get install` carrying every
+# pinned package. Batching is not only about cost — installing everything at once
+# with every package explicitly pinned is what makes the outcome independent of
+# argument order, which matters because the Google Cloud repository publishes an
+# epoch-versioned `kubectl` that would otherwise outrank the pkgs.k8s.io build.
+#
+# Running as root means no `sudo`; `-y` everywhere, with DEBIAN_FRONTEND set as
+# cheap insurance against a debconf prompt in a container with no terminal.
+# ---------------------------------------------------------------------------
+
+export DEBIAN_FRONTEND=noninteractive
+
+# Tools whose install failed. Verification skips these, so one breakage is
+# reported once rather than twice under two names.
+failed_tools=()
+
+tool_install_failed() {
+  local wanted=$1 tool
+  for tool in ${failed_tools[@]+"${failed_tools[@]}"}; do
+    if [ "${tool}" = "${wanted}" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Kubernetes: one repository per minor version, selected by KUBECTL_MINOR. The
+# armoured key is used as-is rather than dearmoured — apt reads an ASCII-armoured
+# `signed-by` file directly, which keeps `gnupg` off the prerequisite list for a
+# base image this script does not control.
+setup_repo_k8s() {
+  local url="https://pkgs.k8s.io/core:/stable:/v${KUBECTL_MINOR}/deb"
+  local keyring=/etc/apt/keyrings/kubernetes-apt-keyring.asc
+
+  mkdir -p /etc/apt/keyrings || return 1
+  curl -fsSL "${url}/Release.key" -o "${keyring}" || return 1
+  chmod 644 "${keyring}" || return 1
+  echo "deb [signed-by=${keyring}] ${url}/ /" \
+    > /etc/apt/sources.list.d/kubernetes.list || return 1
+  chmod 644 /etc/apt/sources.list.d/kubernetes.list
+}
+
+# Nothing to install means nothing to configure: with every requested tool
+# already present, a re-run touches no repository and runs no apt at all.
+if [ ${#apt_pkgs[@]} -gt 0 ]; then
+  seen_repos=""
+  for repo in "${repos[@]}"; do
+    # A second tool from the same vendor is a no-op.
+    case " ${seen_repos} " in
+      *" ${repo} "*) continue ;;
+    esac
+    seen_repos="${seen_repos} ${repo}"
+
+    case "${repo}" in
+      k8s) run_step "repository setup: kubernetes" setup_repo_k8s ;;
+      *)
+        echo "environment.sh: no repository setup for vendor: ${repo}" >&2
+        FAILED_STEPS+=("repository setup: ${repo}")
+        ;;
+    esac
+  done
+
+  run_step "apt-get update" apt-get update
+
+  # The step name carries every package and its pin, so a pin that no longer
+  # exists upstream is named in the recap as well as in apt's own error text.
+  # The pin is always explicit: there is no unpinned fallback to fall back to.
+  apt_failures_before=${#FAILED_STEPS[@]}
+  run_step "apt-get install ${apt_pkgs[*]}" apt-get install -y "${apt_pkgs[@]}"
+  if [ ${#FAILED_STEPS[@]} -ne "${apt_failures_before}" ]; then
+    failed_tools+=("${apt_tools[@]}")
+  fi
+fi
 
 mkdir -p ~/.claude
 
@@ -222,15 +333,83 @@ write_settings() {
 
 run_step "write settings.json" write_settings
 
+# ---------------------------------------------------------------------------
 # Verification. Read-only, so it sits below the settings write without breaking
 # the settings-last constraint, and it reports the requested tools only — no
 # "not requested" rows inviting anyone to wonder whether a skip was a failure.
 # An empty selection still runs the block and says so explicitly, so an
 # environment that deliberately asked for nothing does not read like one whose
 # argument line got mangled.
+#
+# This is a second, independent gate: it can fail the session on its own. Each
+# tool is invoked rather than located on PATH, because presence only proves a
+# file landed while invocation proves the tool starts. The version it prints is
+# compared against a string derived from the pin — exactly, not by containment,
+# because "1.3" is contained in "1.34.10-1.1" — so there stays one source of
+# truth per tool and no second EXPECTED variable to drift.
+# ---------------------------------------------------------------------------
+
+# verify_version <tool> <expected> <command...>
+# One row. The command prints the version the tool reports and nothing else.
+# A passing row carries only what was found; a failing one also carries the pin,
+# so the interesting number appears exactly when it matters.
+verify_version() {
+  local tool=$1 expected=$2 actual
+  shift 2
+
+  if ! actual=$("$@" 2>/dev/null) || [ -z "${actual}" ]; then
+    echo "✗ ${tool} did not run, expected ${expected}"
+    FAILED_STEPS+=("verify ${tool}")
+    return 0
+  fi
+
+  if [ "${actual}" = "${expected}" ]; then
+    echo "✓ ${tool} ${actual}"
+    return 0
+  fi
+
+  echo "✗ ${tool} ${actual}, expected ${expected}"
+  FAILED_STEPS+=("verify ${tool}")
+}
+
+kubectl_reported_version() {
+  kubectl version --client | sed -n 's/^Client Version: *//p' | head -n 1
+}
+
+# Read-back of the file written above: it has to parse as JSON and carry the
+# keys a session depends on. `claude plugin list` is deliberately not consulted —
+# its output format is not a contract.
+verify_settings() {
+  if jq -e '
+    .permissions.defaultMode == "auto"
+    and .enabledPlugins["mattpocock-skills@mattpocock"] == true
+    and .enabledPlugins["caveman@caveman"] == true
+  ' ~/.claude/settings.json > /dev/null 2>&1; then
+    echo "✓ settings.json"
+    return 0
+  fi
+
+  echo "✗ settings.json is missing, unparseable, or missing expected keys"
+  FAILED_STEPS+=("verify settings.json")
+}
+
 if [ ${#requested_tools[@]} -eq 0 ]; then
   echo "✓ no tools requested"
 fi
+
+for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
+  # A tool whose install already failed is not re-verified: its error text is
+  # already in the log and its step is already in the recap.
+  if tool_install_failed "${tool}"; then
+    continue
+  fi
+
+  case "${tool}" in
+    kubectl) verify_version kubectl "v${KUBECTL_VERSION%%-*}" kubectl_reported_version ;;
+  esac
+done
+
+verify_settings
 
 report_failures
 

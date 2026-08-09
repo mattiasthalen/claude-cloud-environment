@@ -28,5 +28,14 @@ if [ -f "${HOME}/.claude/settings.json" ]; then
   cp "${HOME}/.claude/settings.json" /out/settings.json
 fi
 
+# Which of the tools this script installs ended up on PATH, one `NAME PATH` line
+# each. Absence is a result too, so the file is written either way.
+: > /out/tools
+for tool in gcloud gke-gcloud-auth-plugin az kubectl snow acli; do
+  if resolved=$(command -v "${tool}"); then
+    echo "${tool} ${resolved}" >> /out/tools
+  fi
+done
+
 # Always zero: a failing script is a result to report, not a harness error.
 exit 0
