@@ -373,7 +373,7 @@ verify_version() {
 }
 
 kubectl_reported_version() {
-  kubectl version --client | sed -n 's/^Client Version: *//p' | head -n 1
+  kubectl version --client | sed -n 's/^Client Version: *//p'
 }
 
 # Read-back of the file written above: it has to parse as JSON and carry the
