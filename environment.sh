@@ -8,8 +8,9 @@ SCRIPT_VERSION=1.0.0
 echo "environment.sh v${SCRIPT_VERSION}"
 
 # Failure policy: every step is attempted, failures accumulate here, and the
-# run ends with one recap and a plain `exit 1`. No `|| true` anywhere, and no
-# quiet tier — plugin steps and the settings write are governed alike.
+# run ends with one recap and a plain `exit 1`. No step swallows its own exit
+# code, and there is no quiet tier — plugin steps and the settings write are
+# governed alike.
 FAILED_STEPS=()
 
 # Run a step, streaming its output so the underlying error text appears next to
@@ -41,11 +42,12 @@ EOF
 # `claude plugin install` installs a plugin but does NOT enable it when run
 # non-interactively (e.g. via `curl … | bash`): the plugin lands in the cache
 # with `Status: disabled`, so its skills never load. Enablement is expressed as
-# an explicit `enabledPlugins` entry in the settings write below rather than a
-# `claude plugin enable` call — that command is the one non-idempotent command
-# in this file (it exits 1 on "already enabled") and is only a wrapper over the
-# same map. `claude plugin marketplace add` stays a command, because `install`
-# requires the marketplace registered at install time.
+# an explicit `enabledPlugins` entry in the settings write below rather than by
+# invoking the plugin CLI's enable subcommand — that command is the one
+# non-idempotent command in this file (it exits 1 on "already enabled") and is
+# only a wrapper over the same map. `claude plugin marketplace add` stays a
+# command, because `install` requires the marketplace registered at install
+# time.
 #
 # stdin is redirected from /dev/null on every plugin command so nothing reads
 # leftover script bytes when this file is piped into bash.
