@@ -68,6 +68,7 @@ From `tests/lib.sh`:
 | `harness_pre <<'PRE' … PRE` | Snippet run in the container before the script, to arrange starting state. Call before `harness_run`. |
 | `harness_script_version` | `SCRIPT_VERSION` read from the script, so a bump needs no case edits. |
 | `harness_pin <VARIABLE>` | A pin read from the lockfile block, so a version roll needs no case edits. |
+| `harness_pkg_version <package>` | The apt version dpkg reports for a package in the container, empty when it is not installed — the binary on PATH does not say which repository it came from. |
 | `assert_status <code>` | Exit code. |
 | `assert_first_line <line>` | First line of stdout. |
 | `assert_output_contains <text>` | Fixed-string match over stdout and stderr. |
@@ -77,7 +78,7 @@ From `tests/lib.sh`:
 | `harness_fail <message>` | Fail with a custom message. |
 
 After `harness_run`, `HARNESS_STATUS`, `HARNESS_STDOUT`, `HARNESS_STDERR`,
-`HARNESS_SETTINGS` and `HARNESS_TOOLS` hold the raw result if a case needs something the assertions
+`HARNESS_SETTINGS`, `HARNESS_TOOLS` and `HARNESS_PACKAGES` hold the raw result if a case needs something the assertions
 above do not cover. Every assertion failure prints the case name, the
 invocation, the exit code and the script's stdout and stderr.
 

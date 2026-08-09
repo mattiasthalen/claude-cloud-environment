@@ -19,6 +19,7 @@ HARNESS_STDOUT=""
 HARNESS_STDERR=""
 HARNESS_SETTINGS=""
 HARNESS_TOOLS=""
+HARNESS_PACKAGES=""
 HARNESS_ARGS_DESC=""
 _harness_pre_file=""
 
@@ -126,6 +127,18 @@ harness_run() {
   if [ -f "${out}/tools" ]; then
     HARNESS_TOOLS=$(cat "${out}/tools")
   fi
+  HARNESS_PACKAGES=""
+  if [ -f "${out}/packages" ]; then
+    HARNESS_PACKAGES=$(cat "${out}/packages")
+  fi
+}
+
+# harness_pkg_version <package>
+# The apt version of a package as the container's own dpkg database reports it,
+# empty when the package is not installed. The binary on PATH does not say which
+# repository it came from; this does.
+harness_pkg_version() {
+  printf '%s\n' "${HARNESS_PACKAGES}" | sed -n "s/^$1 //p" | head -n 1
 }
 
 # The version the script under test reports, read from the script itself so a

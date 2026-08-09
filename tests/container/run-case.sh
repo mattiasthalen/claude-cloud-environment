@@ -37,5 +37,12 @@ for tool in gcloud gke-gcloud-auth-plugin az kubectl snow acli; do
   fi
 done
 
+# The apt version of every installed package, one `NAME VERSION` line each. The
+# binary on PATH does not say which repository it came from, and for kubectl
+# that is the whole question: the Google Cloud repository publishes an
+# epoch-versioned `kubectl` that is a different package at the same command.
+: > /out/packages
+dpkg-query -W -f '${Package} ${Version}\n' 2> /dev/null >> /out/packages || true
+
 # Always zero: a failing script is a result to report, not a harness error.
 exit 0
