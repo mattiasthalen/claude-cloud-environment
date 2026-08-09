@@ -239,6 +239,20 @@ EOF
   chmod 644 /etc/apt/sources.list.d/azure-cli.sources
 }
 
+# Atlassian: a single `stable` suite that carries exactly one version of acli,
+# which is why acli is this script's unpinned exception. The armoured key is used
+# as-is, as above and for the same reason.
+setup_repo_atlassian() {
+  local keyring=/etc/apt/keyrings/acli-archive-keyring.asc
+
+  mkdir -p /etc/apt/keyrings || return 1
+  curl -fsSL https://acli.atlassian.com/gpg/public-key.asc -o "${keyring}" || return 1
+  chmod 644 "${keyring}" || return 1
+  echo "deb [arch=amd64 signed-by=${keyring}] https://acli.atlassian.com/linux/deb stable main" \
+    > /etc/apt/sources.list.d/acli.list || return 1
+  chmod 644 /etc/apt/sources.list.d/acli.list
+}
+
 # Nothing to install means nothing to configure: with every requested tool
 # already present, a re-run touches no repository and runs no apt at all.
 if [ ${#apt_pkgs[@]} -gt 0 ]; then
@@ -253,6 +267,7 @@ if [ ${#apt_pkgs[@]} -gt 0 ]; then
     case "${repo}" in
       k8s) run_step "repository setup: kubernetes" setup_repo_k8s ;;
       microsoft) run_step "repository setup: microsoft" setup_repo_microsoft ;;
+      atlassian) run_step "repository setup: atlassian" setup_repo_atlassian ;;
       *)
         echo "environment.sh: no repository setup for vendor: ${repo}" >&2
         FAILED_STEPS+=("repository setup: ${repo}")
@@ -399,6 +414,26 @@ verify_version() {
   FAILED_STEPS+=("verify ${tool}")
 }
 
+# verify_invocable <tool> <command...>
+# The row for a tool with no pin to assert against: exit zero and non-empty
+# output, no version comparison. acli is the script's one unpinned tool, so
+# there is no expected string to compare with, and inventing one against a
+# moving upstream would turn any acli release into a session-blocking failure
+# for every environment that requested it. Invoking it still catches the failure
+# that matters here — a build that installed but will not start.
+verify_invocable() {
+  local tool=$1 actual
+  shift
+
+  if ! actual=$("$@" 2>/dev/null) || [ -z "${actual}" ]; then
+    echo "✗ ${tool} did not run"
+    FAILED_STEPS+=("verify ${tool}")
+    return 0
+  fi
+
+  echo "✓ ${tool} ${actual}"
+}
+
 az_reported_version() {
   az version --query '"azure-cli"' --output tsv
 }
@@ -438,6 +473,7 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
   case "${tool}" in
     az)      verify_version az "${AZ_VERSION%%-*}" az_reported_version ;;
     kubectl) verify_version kubectl "v${KUBECTL_VERSION%%-*}" kubectl_reported_version ;;
+    acli)    verify_invocable acli acli --version ;;
   esac
 done
 
