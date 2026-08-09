@@ -108,8 +108,10 @@ done
 # True when the argument list contained this tool name.
 tool_requested() {
   local wanted=$1 tool
-  for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
-    [ "${tool}" = "${wanted}" ] && return 0
+  for tool in "${requested_tools[@]}"; do
+    if [ "${tool}" = "${wanted}" ]; then
+      return 0
+    fi
   done
   return 1
 }
@@ -117,7 +119,7 @@ tool_requested() {
 # Validation. Every problem in the argument list is reported in this one pass,
 # before any repository setup or install work, so a mistyped name costs a second
 # rather than a minute and a failed run has installed nothing.
-for tool in ${unknown_tools[@]+"${unknown_tools[@]}"}; do
+for tool in "${unknown_tools[@]}"; do
   echo "environment.sh: unknown tool: ${tool}" >&2
   echo "  valid tools: ${VALID_TOOLS}" >&2
   FAILED_STEPS+=("unknown tool: ${tool}")
