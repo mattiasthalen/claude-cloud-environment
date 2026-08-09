@@ -213,6 +213,32 @@ setup_repo_k8s() {
   chmod 644 /etc/apt/sources.list.d/kubernetes.list
 }
 
+# Microsoft: the Azure CLI repository, registered in the deb822 `.sources` form
+# Microsoft documents rather than a one-line `.list` entry. The distribution
+# codename is baked into the AZ_VERSION pin (`-1~noble`) as well as into Suites
+# here, so the two move together. The armoured key is used as-is, as above.
+#
+# az extensions are not shipped by this script. When one is ever added it
+# installs with `az extension add --system --version <version> -y`, so the
+# extension is system-wide like everything else installed here rather than bound
+# to root's $HOME.
+setup_repo_microsoft() {
+  local keyring=/etc/apt/keyrings/microsoft.asc
+
+  mkdir -p /etc/apt/keyrings || return 1
+  curl -fsSL https://packages.microsoft.com/keys/microsoft.asc -o "${keyring}" || return 1
+  chmod 644 "${keyring}" || return 1
+  cat > /etc/apt/sources.list.d/azure-cli.sources << EOF || return 1
+Types: deb
+URIs: https://packages.microsoft.com/repos/azure-cli/
+Suites: noble
+Components: main
+Architectures: amd64
+Signed-by: ${keyring}
+EOF
+  chmod 644 /etc/apt/sources.list.d/azure-cli.sources
+}
+
 # Nothing to install means nothing to configure: with every requested tool
 # already present, a re-run touches no repository and runs no apt at all.
 if [ ${#apt_pkgs[@]} -gt 0 ]; then
@@ -226,6 +252,7 @@ if [ ${#apt_pkgs[@]} -gt 0 ]; then
 
     case "${repo}" in
       k8s) run_step "repository setup: kubernetes" setup_repo_k8s ;;
+      microsoft) run_step "repository setup: microsoft" setup_repo_microsoft ;;
       *)
         echo "environment.sh: no repository setup for vendor: ${repo}" >&2
         FAILED_STEPS+=("repository setup: ${repo}")
@@ -372,6 +399,10 @@ verify_version() {
   FAILED_STEPS+=("verify ${tool}")
 }
 
+az_reported_version() {
+  az version --query '"azure-cli"' --output tsv
+}
+
 kubectl_reported_version() {
   kubectl version --client | sed -n 's/^Client Version: *//p'
 }
@@ -405,6 +436,7 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
   fi
 
   case "${tool}" in
+    az)      verify_version az "${AZ_VERSION%%-*}" az_reported_version ;;
     kubectl) verify_version kubectl "v${KUBECTL_VERSION%%-*}" kubectl_reported_version ;;
   esac
 done
