@@ -96,6 +96,7 @@ repos=()
 apt_pkgs=()
 apt_tools=()
 uv_pkgs=()
+uv_tools=()
 
 # Presence guard. A tool already on PATH contributes nothing to the install —
 # that, and not a swallowed exit code, is what makes a re-run a no-op. The guard
@@ -119,10 +120,14 @@ want_apt() {
 }
 
 # want_uv <tool> <requirement>
+# uv_tools stays parallel to uv_pkgs for the same reason apt_tools does: a failed
+# install has to be attributable back to the tool it was carrying, so the
+# verification block can skip a tool that never arrived.
 want_uv() {
   local tool=$1 requirement=$2
   tool_present "${tool}" && return 0
   uv_pkgs+=("${requirement}")
+  uv_tools+=("${tool}")
 }
 
 for tool in "$@"; do
@@ -287,6 +292,32 @@ if [ ${#apt_pkgs[@]} -gt 0 ]; then
   fi
 fi
 
+# ---------------------------------------------------------------------------
+# Non-apt installs. Today this phase holds `uv tool install` alone — snow is the
+# one requestable tool with no apt repository behind it — but it is where any
+# future tool that does not come from a vendor repository lands, which is why it
+# is a phase and not a snow-shaped special case. There is no repository setup
+# arm to match: PyPI is not an apt vendor.
+#
+# UV_TOOL_BIN_DIR puts the shim in /usr/local/bin, which every session's PATH
+# already carries, rather than uv's default ~/.local/bin, which a non-login
+# shell need not. --python 3.12 is explicit so the interpreter is this script's
+# decision rather than whatever uv happens to find. The requirement carries an
+# exact `==` pin, so a pin that has gone from PyPI fails here — named, with its
+# version, in the recap — instead of resolving to latest.
+# ---------------------------------------------------------------------------
+
+if [ ${#uv_pkgs[@]} -gt 0 ]; then
+  for i in "${!uv_pkgs[@]}"; do
+    uv_failures_before=${#FAILED_STEPS[@]}
+    run_step "uv tool install ${uv_pkgs[i]}" \
+      env UV_TOOL_BIN_DIR=/usr/local/bin uv tool install --python 3.12 "${uv_pkgs[i]}"
+    if [ ${#FAILED_STEPS[@]} -ne "${uv_failures_before}" ]; then
+      failed_tools+=("${uv_tools[i]}")
+    fi
+  done
+fi
+
 mkdir -p ~/.claude
 
 # CLAUDE.md
@@ -438,6 +469,10 @@ az_reported_version() {
   az version --query '"azure-cli"' --output tsv
 }
 
+snow_reported_version() {
+  snow --version | sed -n 's/^Snowflake CLI version: *//p'
+}
+
 kubectl_reported_version() {
   kubectl version --client | sed -n 's/^Client Version: *//p'
 }
@@ -473,6 +508,7 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
   case "${tool}" in
     az)      verify_version az "${AZ_VERSION%%-*}" az_reported_version ;;
     kubectl) verify_version kubectl "v${KUBECTL_VERSION%%-*}" kubectl_reported_version ;;
+    snow)    verify_version snow "${SNOW_VERSION}" snow_reported_version ;;
     acli)    verify_invocable acli acli --version ;;
   esac
 done
