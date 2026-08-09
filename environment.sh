@@ -3,6 +3,24 @@ set -euo pipefail
 
 SCRIPT_VERSION=1.0.0
 
+# Lockfile. Every version this script installs is pinned here and nowhere else,
+# so a version roll is one reviewed diff hunk rather than a hunt through
+# installers. Exact versions only: a floating patch component would let a
+# container rebuild move an environment across a release.
+#
+# kubectl keeps two variables rather than deriving one from the other by string
+# manipulation — KUBECTL_MINOR selects the pkgs.k8s.io repository, KUBECTL_VERSION
+# pins the package. If they ever drift apart, the pinned version will not exist
+# in the configured repository and the install fails loudly, which is the point.
+GCLOUD_VERSION=579.0.0-0
+AZ_VERSION=2.89.0-1~noble
+KUBECTL_MINOR=1.34
+KUBECTL_VERSION=1.34.10-1.1
+SNOW_VERSION=3.16.0
+# acli: deliberately unpinned — upstream offers no pin, and asserting a version
+# would turn any upstream acli release into a session-blocking failure for every
+# environment that requested it.
+
 # First line of output, so the container-start log always says which snapshot
 # ran — including on a run that dies before it finishes.
 echo "environment.sh v${SCRIPT_VERSION}"
@@ -29,6 +47,90 @@ run_step() {
   FAILED_STEPS+=("${name}")
   return 0
 }
+
+# The one recap and the one `exit 1`. Called after argument validation, so a bad
+# argument list ends the run before anything is installed, and again at the end
+# of a run that got that far. A run with nothing collected falls through.
+report_failures() {
+  [ ${#FAILED_STEPS[@]} -gt 0 ] || return 0
+
+  echo
+  echo "environment.sh v${SCRIPT_VERSION}: ${#FAILED_STEPS[@]} step(s) failed:" >&2
+  for step in "${FAILED_STEPS[@]}"; do
+    echo "  - ${step}" >&2
+  done
+  exit 1
+}
+
+# ---------------------------------------------------------------------------
+# Tool selection
+#
+# The tools an environment needs arrive as positional arguments through the
+# pipe: `curl -sL … | bash -s -- gcloud kubectl snow`. Names are binary names —
+# the commands a session will actually type. The namespace is flat: an add-on is
+# just a tool name whose installer happens to be a package with a longer name.
+#
+# Adding a tool later is four steps, no more:
+#   1. one line in the lockfile block at the top of this file,
+#   2. one `case` arm below, appending to the accumulators, with the new name
+#      added to VALID_TOOLS,
+#   3. one arm in the verification block at the bottom of this file,
+#   4. one repository setup arm — only if the vendor is not already used.
+#
+# The `case` below only appends; it installs nothing. Collecting the whole
+# selection before installing anything is what makes the outcome independent of
+# the order the tools were listed in, which is load-bearing: the Google Cloud
+# repository publishes an epoch-versioned kubectl that would otherwise win or
+# lose depending on argument order.
+# ---------------------------------------------------------------------------
+
+VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow acli"
+
+requested_tools=()
+unknown_tools=()
+repos=()
+apt_pkgs=()
+uv_pkgs=()
+
+for tool in "$@"; do
+  requested_tools+=("${tool}")
+  case "${tool}" in
+    gcloud)                 repos+=(google);    apt_pkgs+=("google-cloud-cli=${GCLOUD_VERSION}") ;;
+    gke-gcloud-auth-plugin) repos+=(google);    apt_pkgs+=("google-cloud-cli-gke-gcloud-auth-plugin=${GCLOUD_VERSION}") ;;
+    az)                     repos+=(microsoft); apt_pkgs+=("azure-cli=${AZ_VERSION}") ;;
+    kubectl)                repos+=(k8s);       apt_pkgs+=("kubectl=${KUBECTL_VERSION}") ;;
+    snow)                                       uv_pkgs+=("snowflake-cli==${SNOW_VERSION}") ;;
+    acli)                   repos+=(atlassian); apt_pkgs+=(acli) ;;
+    *)                      unknown_tools+=("${tool}") ;;
+  esac
+done
+
+# True when the argument list contained this tool name.
+tool_requested() {
+  local wanted=$1 tool
+  for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
+    [ "${tool}" = "${wanted}" ] && return 0
+  done
+  return 1
+}
+
+# Validation. Every problem in the argument list is reported in this one pass,
+# before any repository setup or install work, so a mistyped name costs a second
+# rather than a minute and a failed run has installed nothing.
+for tool in ${unknown_tools[@]+"${unknown_tools[@]}"}; do
+  echo "environment.sh: unknown tool: ${tool}" >&2
+  echo "  valid tools: ${VALID_TOOLS}" >&2
+  FAILED_STEPS+=("unknown tool: ${tool}")
+done
+
+# An add-on requested without its parent is the same class of error: it would
+# install a plugin with nothing to plug into.
+if tool_requested gke-gcloud-auth-plugin && ! tool_requested gcloud; then
+  echo "environment.sh: gke-gcloud-auth-plugin requested without its parent tool gcloud" >&2
+  FAILED_STEPS+=("gke-gcloud-auth-plugin requested without gcloud")
+fi
+
+report_failures
 
 mkdir -p ~/.claude
 
@@ -118,13 +220,16 @@ write_settings() {
 
 run_step "write settings.json" write_settings
 
-if [ ${#FAILED_STEPS[@]} -gt 0 ]; then
-  echo
-  echo "environment.sh v${SCRIPT_VERSION}: ${#FAILED_STEPS[@]} step(s) failed:" >&2
-  for step in "${FAILED_STEPS[@]}"; do
-    echo "  - ${step}" >&2
-  done
-  exit 1
+# Verification. Read-only, so it sits below the settings write without breaking
+# the settings-last constraint, and it reports the requested tools only — no
+# "not requested" rows inviting anyone to wonder whether a skip was a failure.
+# An empty selection still runs the block and says so explicitly, so an
+# environment that deliberately asked for nothing does not read like one whose
+# argument line got mangled.
+if [ ${#requested_tools[@]} -eq 0 ]; then
+  echo "✓ no tools requested"
 fi
+
+report_failures
 
 exit 0
