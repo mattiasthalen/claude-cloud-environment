@@ -19,6 +19,7 @@ HARNESS_STDOUT=""
 HARNESS_STDERR=""
 HARNESS_SETTINGS=""
 HARNESS_TOOLS=""
+HARNESS_SKILLS=""
 HARNESS_PACKAGES=""
 HARNESS_ARGS_DESC=""
 _harness_pre_file=""
@@ -101,6 +102,7 @@ harness_run() {
 
   mounts=(
     -v "${REPO_ROOT}/environment.sh:/harness/environment.sh:ro"
+    -v "${REPO_ROOT}/skills:/harness/skills:ro"
     -v "${HARNESS_DIR}/container/run-case.sh:/harness/run-case.sh:ro"
     -v "${out}:/out"
   )
@@ -126,6 +128,10 @@ harness_run() {
   HARNESS_TOOLS=""
   if [ -f "${out}/tools" ]; then
     HARNESS_TOOLS=$(cat "${out}/tools")
+  fi
+  HARNESS_SKILLS=""
+  if [ -f "${out}/skills" ]; then
+    HARNESS_SKILLS=$(cat "${out}/skills")
   fi
   HARNESS_PACKAGES=""
   if [ -f "${out}/packages" ]; then
@@ -217,6 +223,26 @@ assert_tool_on_path() {
   local tool=$1
   printf '%s\n' "${HARNESS_TOOLS}" | grep -q "^${tool} " ||
     harness_fail "expected '${tool}' on PATH after the run, found: ${HARNESS_TOOLS:-<none>}"
+}
+
+# assert_skill_installed <name>
+# A non-empty SKILL.md the run left under ~/.claude/skills/<name>/. Presence in
+# the container is a different claim from the script's own verification row, and
+# it is only reachable through the tag-pinned URL — the harness curl refuses any
+# other (see tests/container/run-case.sh).
+assert_skill_installed() {
+  local skill=$1
+  printf '%s\n' "${HARNESS_SKILLS}" | grep -q "^${skill} " ||
+    harness_fail "expected the skill '${skill}' installed after the run, found: ${HARNESS_SKILLS:-<none>}"
+}
+
+# assert_skill_absent <name>
+# The negation, for a run whose fetch was arranged to fail.
+assert_skill_absent() {
+  local skill=$1
+  printf '%s\n' "${HARNESS_SKILLS}" | grep -q "^${skill} " &&
+    harness_fail "expected no '${skill}' skill after the run, found: ${HARNESS_SKILLS}"
+  return 0
 }
 
 # assert_settings_jq <jq-filter> <expected-output>

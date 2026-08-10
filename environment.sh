@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.0.0
+SCRIPT_VERSION=1.1.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -370,6 +370,57 @@ run_step "marketplace add JuliusBrussee/caveman" \
 run_step "plugin install caveman@caveman" \
   claude plugin install caveman@caveman </dev/null
 
+# ---------------------------------------------------------------------------
+# Skills this repo ships.
+#
+# The swarm skill is adapted from the proposal by @berkaykiran in
+# https://github.com/mattpocock/skills/issues/787. It is vendored — fetched as a
+# file rather than installed as a plugin — because upstream ships no package for
+# it. That issue is also the signal to delete this block: if swarm ever lands
+# upstream properly, this becomes an ordinary `claude plugin install`.
+#
+# The fetch is pinned to this script's own release tag. The script cannot know
+# the commit it was fetched at, but it does know its own version, and the
+# release workflow cuts `v${SCRIPT_VERSION}` at the commit that carries it — so
+# a box pinned to a tag gets the skill that shipped with that tag and can never
+# silently pull a newer one. A branch ref here would reintroduce exactly the
+# drift the tag-pinned box exists to prevent.
+#
+# Always installed, and deliberately not a name the argument parser accepts: the
+# selection surface exists because CLIs are heavy and per-environment, and a
+# Markdown file is neither. Putting skills on that surface would also make every
+# future skill a MAJOR bump to the invocation rather than a MINOR one.
+#
+# A failed fetch is collected like any other step rather than aborting the run.
+# A missing skill costs one absent slash command; aborting costs the whole
+# environment, including the CLIs the box actually asked for.
+# ---------------------------------------------------------------------------
+
+SKILLS_URL="https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v${SCRIPT_VERSION}/skills"
+SWARM_SKILL=~/.claude/skills/swarm/SKILL.md
+
+install_swarm_skill() {
+  mkdir -p "$(dirname "${SWARM_SKILL}")" || return 1
+
+  if curl -fsSL "${SKILLS_URL}/swarm/SKILL.md" -o "${SWARM_SKILL}"; then
+    return 0
+  fi
+
+  # curl leaves the output file behind on a failed transfer, and a truncated
+  # SKILL.md would verify as present. Removing it keeps absence honest.
+  rm -f "${SWARM_SKILL}"
+  return 1
+}
+
+# Tracked for the same reason failed_tools is: a skill whose fetch failed still
+# gets its verification row, but the recap names the breakage once.
+swarm_skill_install_failed=0
+skill_failures_before=${#FAILED_STEPS[@]}
+run_step "install swarm skill" install_swarm_skill
+if [ ${#FAILED_STEPS[@]} -ne "${skill_failures_before}" ]; then
+  swarm_skill_install_failed=1
+fi
+
 # Lean Claude Code — written LAST.
 # https://www.aihero.dev/how-to-kill-the-bloat-in-claude-codes-system-prompt
 #
@@ -520,6 +571,23 @@ verify_settings() {
   FAILED_STEPS+=("verify settings.json")
 }
 
+# The shipped skill has no `--version` to report and nothing to invoke, so a
+# non-empty installed file is the whole check. The row is printed either way —
+# present or absent is what the block is for — but a fetch that already failed
+# is not counted twice, the same way a tool whose install failed is not
+# re-verified.
+verify_swarm_skill() {
+  if [ -s "${SWARM_SKILL}" ]; then
+    echo "✓ swarm skill"
+    return 0
+  fi
+
+  echo "✗ swarm skill is missing or empty"
+  if [ "${swarm_skill_install_failed}" -eq 0 ]; then
+    FAILED_STEPS+=("verify swarm skill")
+  fi
+}
+
 if [ ${#requested_tools[@]} -eq 0 ]; then
   echo "✓ no tools requested"
 fi
@@ -541,6 +609,7 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
   esac
 done
 
+verify_swarm_skill
 verify_settings
 
 report_failures

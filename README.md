@@ -12,8 +12,8 @@ immutable tag and pipe it into `bash`, listing the tools that environment needs
 as positional arguments.
 
 ```
-# environment.sh v1.0.0
-curl -sL https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v1.0.0/environment.sh | bash -s -- gcloud kubectl gke-gcloud-auth-plugin snow
+# environment.sh v1.1.0
+curl -sL https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v1.1.0/environment.sh | bash -s -- gcloud kubectl gke-gcloud-auth-plugin snow
 ```
 
 The tag is what makes the box a decision: a change reaches an environment only
@@ -26,6 +26,20 @@ are the binary names: `gcloud`, `az`, `kubectl`, `snow`, `acli`, and the add-on
 `gke-gcloud-auth-plugin` (which requires `gcloud` in the same list). An unknown
 name fails before anything is installed. No arguments is a valid invocation and
 installs the plugins and settings only.
+
+## Skills
+
+`skills/` holds the skills this repo ships into every environment — currently
+`swarm`, adapted from [@berkaykiran](https://github.com/berkaykiran)'s proposal
+in [mattpocock/skills#787](https://github.com/mattpocock/skills/issues/787). The
+script fetches each one into `~/.claude/skills/` from the same immutable tag it
+was itself fetched at, so a box pinned to a tag gets the skills that shipped
+with that tag.
+
+Skills are always installed and are not names the argument list accepts: that
+list exists because CLIs are heavy and differ per environment, and a Markdown
+file is neither. A fetch that fails costs one absent slash command and is
+reported in the recap; it does not abort the rest of the setup.
 
 **Which tools an environment uses lives only in that environment's box.** This
 repo keeps no table of who requested what; reading a box is the only way to know
