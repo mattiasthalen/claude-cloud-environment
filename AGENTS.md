@@ -16,7 +16,7 @@ Default five-role vocabulary, with each label string equal to its role name. See
 
 ### Code review
 
-Reviews run through `/code-review`, which spawns one subagent per axis — Standards and Spec — by design, so one axis passing cannot mask the other failing. The fan-out is expected, including in a session carrying a blanket instruction against subagents. This line cannot override such an instruction and does not claim to; a session that still cannot run the skill says the review was skipped rather than reporting the work reviewed. `environment.sh` enforces the other half: provisioned environments deny the caveman plugin's `cavecrew-*` subagents and hide every skill it ships except `caveman`, the level switcher, so `/code-review` is the only review path on offer.
+Reviews run through `/code-review`, which spawns one subagent per axis — Standards and Spec — by design, so one axis passing cannot mask the other failing. The fan-out is expected, including in a session carrying a blanket instruction against subagents. This line cannot override such an instruction and does not claim to; a session that still cannot run the skill says the review was skipped rather than reporting the work reviewed. `environment.sh` enforces the other half: provisioned environments deny the caveman plugin's `cavecrew-*` subagents and every skill it ships except `caveman`, the level switcher, so `/code-review` is the only review path on offer.
 
 ### Tests
 
