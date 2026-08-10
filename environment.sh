@@ -403,7 +403,8 @@ fi
 # the mode; it also writes the destination in one move, which is what keeps a
 # failure from leaving a half-written kubelogin on PATH.
 install_kubelogin() {
-  local base="https://github.com/Azure/kubelogin/releases/download/v${KUBELOGIN_VERSION}"
+  local version=$1
+  local base="https://github.com/Azure/kubelogin/releases/download/v${version}"
   local archive=kubelogin-linux-amd64.zip
   local workdir
 
@@ -428,7 +429,7 @@ if [ ${#release_tools[@]} -gt 0 ]; then
     # upstream is named in the recap as well as in curl's own error text.
     case "${release_tools[i]}" in
       kubelogin)
-        run_step "release install kubelogin v${release_pins[i]}" install_kubelogin
+        run_step "release install kubelogin v${release_pins[i]}" install_kubelogin "${release_pins[i]}"
         ;;
       *)
         echo "environment.sh: no release installer for tool: ${release_tools[i]}" >&2

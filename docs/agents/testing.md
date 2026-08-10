@@ -20,7 +20,10 @@ The first run builds `claude-cloud-environment-tests:base` from
 `tests/base.Dockerfile` — Ubuntu 24.04 as root, pinned to `linux/amd64` because
 every pin and install method in `environment.sh` assumes that base, and carrying
 only what the hosted base image already provides before the script runs: a CA
-store, `curl`, `git`, `jq` and the Claude Code CLI. Later runs reuse the image —
+store, `curl`, `git`, `jq`, `uv` and the Claude Code CLI. `uv` is load-bearing
+for two of `environment.sh`'s three install phases — the PyPI one runs through
+it, and the release-archive one borrows it to unpack a zip — so a case that
+exercises either is relying on the base image carrying it. Later runs reuse the image —
 a cached rebuild costs a fraction of a second — and each case still gets a fresh
 container from it.
 
