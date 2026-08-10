@@ -11,7 +11,7 @@
 # tier: vendor
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
-harness_run gcloud gke-gcloud-auth-plugin az kubectl snow acli prefect
+harness_run gcloud gke-gcloud-auth-plugin az kubectl snow acli prefect kubelogin
 
 assert_first_line "environment.sh v$(harness_script_version)"
 assert_output_lacks "unknown tool:"
