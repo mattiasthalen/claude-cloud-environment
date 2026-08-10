@@ -3,6 +3,7 @@
 # still reaches verification, a verification failure is collected the same way an
 # install failure is, and the run ends with a single recap naming all of them and
 # a single exit 1 — not an abort at the first thing that broke.
+# tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_pre <<'PRE'

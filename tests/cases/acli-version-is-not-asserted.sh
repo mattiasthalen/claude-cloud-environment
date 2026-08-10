@@ -8,6 +8,7 @@
 # kubectl in the same position fails verification (see
 # wrong-version-fails-verification). The row carries what the binary reported
 # and no expected-version text.
+# tier: vendor
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_pre <<'PRE'

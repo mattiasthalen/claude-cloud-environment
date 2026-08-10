@@ -7,6 +7,7 @@
 # It is also reported once. The verification row says the skill is absent, which
 # is what that block is for, without adding a second entry to the recap for the
 # same breakage.
+# tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_pre <<'PRE'

@@ -6,6 +6,7 @@
 # The dead pin is arranged by shadowing uv with a stub that refuses to resolve,
 # which is what PyPI would do for a yanked release; the script sees an install
 # that failed with the pin in its step name either way.
+# tier: vendor
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 pin=$(harness_pin SNOW_VERSION)

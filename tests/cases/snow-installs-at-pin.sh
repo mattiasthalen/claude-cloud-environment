@@ -4,6 +4,7 @@
 # uv install carried the PyPI pin, the shim landed somewhere every session's
 # PATH already carries rather than in the installing shell's ~/.local/bin, and
 # the binary that resulted actually runs.
+# tier: vendor
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 pin=$(harness_pin SNOW_VERSION)

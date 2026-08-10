@@ -3,6 +3,7 @@
 # so in one verification line. This is the whole contract of an apt tool: the
 # repository was configured, the batched install carried the pin, and the binary
 # that resulted actually runs.
+# tier: vendor
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 pin=$(harness_pin KUBECTL_VERSION)

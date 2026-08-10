@@ -6,6 +6,7 @@
 # first and installing once with every package explicitly pinned makes both
 # orders produce the same packages, and makes the epoch-versioned build
 # unreachable.
+# tier: vendor
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 gcloud_pin=$(harness_pin GCLOUD_VERSION)

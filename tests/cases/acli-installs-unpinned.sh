@@ -3,6 +3,7 @@
 # says so in one verification line. It is the script's single unpinned tool, so
 # the install carries no `=version` and the verification line carries no
 # expected-version text — only what the binary reported about itself.
+# tier: vendor
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_run acli

@@ -4,6 +4,7 @@
 # not start is caught: the row fails, the failure joins the same collected list
 # as an install failure, and the run exits 1 rather than handing a broken
 # container to a session.
+# tier: vendor
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_pre <<'PRE'

@@ -7,6 +7,7 @@
 # The row is also the pin assertion: the harness serves a skill file for exactly
 # one URL, the one built from `refs/tags/v${SCRIPT_VERSION}/`, and refuses any
 # other — so a skill that landed could only have come from the tag-pinned URL.
+# tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_run
