@@ -10,6 +10,7 @@
 #   /out/stdout /out/stderr  captured streams
 #   /out/status              the script's exit code
 #   /out/settings.json       ~/.claude/settings.json as the run left it, if any
+#   /out/CLAUDE.md           ~/.claude/CLAUDE.md as the run left it, if any
 #   /out/tools               the tools the run left on PATH
 #   /out/skills              the skills the run left installed
 #   /out/packages            the apt packages the container has
@@ -106,6 +107,10 @@ echo "${status}" > /out/status
 # something else the script leaves behind.
 if [ -f "${HOME}/.claude/settings.json" ]; then
   cp "${HOME}/.claude/settings.json" /out/settings.json
+fi
+
+if [ -f "${HOME}/.claude/CLAUDE.md" ]; then
+  cp "${HOME}/.claude/CLAUDE.md" /out/CLAUDE.md
 fi
 
 # Which of the tools this script installs ended up on PATH, one `NAME PATH` line

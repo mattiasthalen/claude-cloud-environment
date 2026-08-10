@@ -111,10 +111,11 @@ From `tests/lib.sh`:
 | `assert_skill_installed <name>` | A non-empty `~/.claude/skills/<name>/SKILL.md` after the run. |
 | `assert_skill_absent <name>` | The negation, for a run whose fetch was arranged to fail. |
 | `assert_settings_jq <filter> <expected>` | Run a `jq` filter over the `settings.json` the run left behind; fails if it is missing or does not parse. |
+| `assert_claude_md_contains <text>` | Fixed-string match over the `~/.claude/CLAUDE.md` the run wrote; fails if the file is missing. |
 | `harness_fail <message>` | Fail with a custom message. |
 
 After `harness_run`, `HARNESS_STATUS`, `HARNESS_STDOUT`, `HARNESS_STDERR`,
-`HARNESS_SETTINGS`, `HARNESS_TOOLS`, `HARNESS_SKILLS` and `HARNESS_PACKAGES` hold the raw result if a case needs something the assertions
+`HARNESS_SETTINGS`, `HARNESS_CLAUDE_MD`, `HARNESS_TOOLS`, `HARNESS_SKILLS` and `HARNESS_PACKAGES` hold the raw result if a case needs something the assertions
 above do not cover. Every assertion failure prints the case name, the
 invocation, the exit code and the script's stdout and stderr.
 
