@@ -440,6 +440,23 @@ fi
 # The enabledPlugins entries are assigned `true` explicitly rather than deleted
 # when off, because `claude plugin disable` writes `false` rather than removing
 # the key — an absent key and a `false` key are not the same state.
+#
+# The caveman plugin is enabled for its response style alone. Its review path —
+# the three `cavecrew-*` subagents, the `cavecrew` skill that routes work to
+# them, and `caveman-review` — is a second, tempting reviewer sitting next to
+# `/code-review`, and a session told to review will take whichever is nearer.
+# Denying the agents and hiding the skills leaves one review path rather than
+# two. This is the enforced half of what `~/.claude/CLAUDE.md` only asks for.
+#
+# The rest of the plugin's skills — `caveman-commit`, `caveman-compress`,
+# `caveman-help`, `caveman-stats` — are hidden for a plainer reason: an
+# environment provisioned by this script wants the response style and nothing
+# else from the plugin, and every listed skill costs context in every session.
+#
+# `caveman` itself stays on: it is the level switcher, and a skill absent from
+# skillOverrides reads as "on". The always-on response style comes from the
+# plugin's session hook rather than from any of these skills, so hiding them
+# does not turn the style off.
 write_settings() {
   local settings=~/.claude/settings.json
   local tmp
@@ -462,10 +479,19 @@ write_settings() {
         "AskUserQuestion",
         "CronCreate",
         "CronDelete",
-        "CronList"
+        "CronList",
+        "Agent(cavecrew-builder)",
+        "Agent(cavecrew-investigator)",
+        "Agent(cavecrew-reviewer)"
       ]
     | .enabledPlugins["mattpocock-skills@mattpocock"] = true
     | .enabledPlugins["caveman@caveman"] = true
+    | .skillOverrides["cavecrew"] = "off"
+    | .skillOverrides["caveman-review"] = "off"
+    | .skillOverrides["caveman-commit"] = "off"
+    | .skillOverrides["caveman-compress"] = "off"
+    | .skillOverrides["caveman-help"] = "off"
+    | .skillOverrides["caveman-stats"] = "off"
     | .disableBundledSkills = true
     | .disableWorkflows = true
     | .disableRemoteControl = true
