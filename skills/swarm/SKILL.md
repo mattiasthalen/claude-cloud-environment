@@ -94,13 +94,13 @@ Claim each ticket through the tracker's claim operation as it is dispatched.
 >
 > Run typechecking and the single test file you are working on regularly: `<check commands>`. Run the full suite once at the end.
 >
-> Then use `/code-review` against `task/<slug>` and act on its findings.
+> Then use `/code-review` against `task/<slug>` and act on its findings. If you cannot run it — a subagent has no Agent tool of its own, so the skill's two-axis fan-out may have nothing to fan out with — say so plainly instead of reporting the work reviewed.
 >
 > Commit to `issue/NN` with a message referencing #NN, and leave it there — local, unmerged, unpushed. Integration is the orchestrator's job.
 >
 > **Parking a question:** if a decision is genuinely unsettled — one you'd have to guess at, where a wrong guess means rework — stop implementing, comment the question on #NN, label #NN `needs-info`, and report back that the ticket is parked with the question text. Do not guess.
 >
-> Report back in one paragraph: landed or parked, what changed, and whether the suite is green.
+> Report back in one paragraph: landed or parked, what changed, whether the suite is green, and the **review outcome** — one of *reviewed clean*, *reviewed, findings acted on*, or *not run* plus the reason. All four elements are required; a report missing the review outcome is answering a question it was not asked.
 >
 > Effort: `<effort>`.
 
@@ -114,12 +114,16 @@ Never two merges in flight. For each agent that reports **landed**, in completio
    `git rebase task/<slug> issue/NN && git merge --ff-only issue/NN`.
 2. On conflict, resolve it with `/resolving-merge-conflicts` — during the rebase, so the resolution lands in the ticket's own commits.
 3. Run the full check commands on the integration branch.
-4. **Green** — keep it. Close #NN per the tracker. Remove the worktree (`git worktree remove`) and delete `issue/NN`.
+4. **Green** — keep it. Close #NN per the tracker. Remove the worktree (`git worktree remove`) and delete `issue/NN`. Record the agent's review outcome against the ticket as you close it; an agent that reported nothing counts as *not run*.
 5. **Red** — the integration branch stays green, always. Fix it in place if the break is small and obviously yours to fix; otherwise `git reset --hard` back to the pre-integration commit, reopen the ticket, comment the failure on #NN, and treat it as parked.
 
 Rebase-and-fast-forward, never `--no-ff`. A merge commit per ticket makes the integration branch un-rebasable, and a repo that allows only rebase merges will refuse the resulting pull request — with the branch's history, not its content, as the reason. The first ticket of a wave fast-forwards on its own; the later ones need the rebase because the branch they were cut from has moved.
 
 Agents that report **parked** are already carrying a `needs-info` comment; leave their branch and worktree in place and move on.
+
+**A ticket whose review did not run still integrates.** The work is done and the checks are green; reverting it helps nobody, and a review the environment cannot run must not stall the run. The review is not a gate — it is a fact the run carries.
+
+Once such a ticket is integrated, **run `/code-review` for it yourself, from this session**, against the pre-integration commit on `task/<slug>`. You are the top-level session, so the two-axis fan-out that a dispatched agent could not launch works here, and the diff is already on the branch — the re-run is cheap. Act on its findings the way the *Red* branch above acts on a break: fix in place if the fix is small and obviously yours, otherwise comment the findings on #NN and name it in the final report. If the re-run is itself impossible, the ticket stays *not run* and is reported as such — it is never silently upgraded to reviewed.
 
 ### 5. Re-query and repeat
 
@@ -129,15 +133,20 @@ The run ends when the frontier is empty **and** the in-flight set is empty. Ever
 
 ### 6. Report
 
-Hand back the integration branch name, the tickets that landed, and the parked batch as plain text:
+Hand back the integration branch name, the tickets that landed, the tickets that landed unreviewed, and the parked batch as plain text:
 
 ```
 task/<slug> — 6 landed, 2 parked
+
+Landed unreviewed:
+  #28 — /code-review not run: no Agent tool in subagent context; orchestrator re-run also unavailable
 
 Parked:
   #31 — Should the version constant live in the script or a separate file?
   #34 — Two tickets both claim the verification block; which owns it?
 ```
+
+The unreviewed list names every ticket still carrying *not run* after the orchestrator's re-run, with the reason. Omit the block entirely when there are none — an absent block means every landed ticket was reviewed, so it can never be read as silence. Whatever the run also writes — a pull request body above all — carries the same list, in the same words.
 
 Print the questions here as text. Answering them is the user's next move, in their own time — swarm does not wait on them.
 
@@ -148,7 +157,7 @@ You are a filter, not a relay. One line per state transition, nothing else:
 ```
 #28 dispatched
 #31 dispatched
-#28 landed — task/swarm-skill green
+#28 landed — task/swarm-skill green, review not run
 #31 parked — needs-info
 ```
 
