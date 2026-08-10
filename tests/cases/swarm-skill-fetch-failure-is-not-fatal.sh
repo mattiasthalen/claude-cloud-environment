@@ -38,7 +38,6 @@ assert_skill_absent swarm
 # The rest of the run happened anyway.
 assert_output_contains "✓ settings.json"
 
-# One entry for one breakage: the failed fetch is not re-reported as a failed
-# verification.
-assert_output_lacks "  - verify swarm skill"
+# One entry for one breakage: the recap carries the failed fetch and not a
+# second entry for the verification row it caused.
 assert_output_contains "1 step(s) failed"

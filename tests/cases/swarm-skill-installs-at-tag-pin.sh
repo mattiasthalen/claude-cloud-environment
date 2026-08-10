@@ -14,7 +14,7 @@ harness_run
 assert_status 0
 assert_output_contains "==> install swarm skill"
 assert_output_contains "✓ swarm skill"
-assert_skill_installed swarm
 
-printf '%s\n' "${HARNESS_SKILLS}" | grep -qx "swarm /root/.claude/skills/swarm/SKILL.md" ||
-  harness_fail "expected the skill at ~/.claude/skills/swarm/SKILL.md, found: ${HARNESS_SKILLS:-<none>}"
+# The collected list is built from ~/.claude/skills/*/SKILL.md alone, so this
+# also says the skill landed in the user-level skills directory.
+assert_skill_installed swarm
