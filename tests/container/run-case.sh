@@ -116,7 +116,7 @@ fi
 # Which of the tools this script installs ended up on PATH, one `NAME PATH` line
 # each. Absence is a result too, so the file is written either way.
 : > /out/tools
-for tool in gcloud gke-gcloud-auth-plugin az kubectl snow acli; do
+for tool in gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli; do
   if resolved=$(command -v "${tool}"); then
     echo "${tool} ${resolved}" >> /out/tools
   fi

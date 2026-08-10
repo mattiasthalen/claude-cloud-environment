@@ -14,6 +14,7 @@ assert_output_contains "gke-gcloud-auth-plugin"
 assert_output_contains "az"
 assert_output_contains "kubectl"
 assert_output_contains "snow"
+assert_output_contains "prefect"
 assert_output_contains "acli"
 
 if printf '%s\n%s\n' "${HARNESS_STDOUT}" "${HARNESS_STDERR}" | grep -qF -- "==> "; then

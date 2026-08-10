@@ -12,8 +12,8 @@ immutable tag and pipe it into `bash`, listing the tools that environment needs
 as positional arguments.
 
 ```
-# environment.sh v1.2.0
-curl -sL https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v1.2.0/environment.sh | bash -s -- gcloud kubectl gke-gcloud-auth-plugin snow
+# environment.sh v1.3.0
+curl -sL https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v1.3.0/environment.sh | bash -s -- gcloud kubectl gke-gcloud-auth-plugin snow
 ```
 
 The tag is what makes the box a decision: a change reaches an environment only
@@ -22,10 +22,10 @@ are. Use the full `vMAJOR.MINOR.PATCH` form — a truncated `v1` or `v1.0` would
 be a moving target and is not a release tag here.
 
 The argument list is the complete manifest of what gets installed. Valid names
-are the binary names: `gcloud`, `az`, `kubectl`, `snow`, `acli`, and the add-on
-`gke-gcloud-auth-plugin` (which requires `gcloud` in the same list). An unknown
-name fails before anything is installed. No arguments is a valid invocation and
-installs the plugins and settings only.
+are the binary names: `gcloud`, `az`, `kubectl`, `snow`, `prefect`, `acli`, and
+the add-on `gke-gcloud-auth-plugin` (which requires `gcloud` in the same list).
+An unknown name fails before anything is installed. No arguments is a valid
+invocation and installs the plugins and settings only.
 
 ## Skills
 

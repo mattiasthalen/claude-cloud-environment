@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.2.0
+SCRIPT_VERSION=1.3.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -17,6 +17,7 @@ AZ_VERSION=2.89.0-1~noble
 KUBECTL_MINOR=1.34
 KUBECTL_VERSION=1.34.10-1.1
 SNOW_VERSION=3.16.0
+PREFECT_VERSION=3.8.2
 # acli: deliberately unpinned — upstream offers no pin, and asserting a version
 # would turn any upstream acli release into a session-blocking failure for every
 # environment that requested it.
@@ -88,7 +89,7 @@ report_failures() {
 # lose depending on argument order.
 # ---------------------------------------------------------------------------
 
-VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow acli"
+VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli"
 
 requested_tools=()
 unknown_tools=()
@@ -138,6 +139,7 @@ for tool in "$@"; do
     az)                     want_apt az microsoft "azure-cli=${AZ_VERSION}" ;;
     kubectl)                want_apt kubectl k8s "kubectl=${KUBECTL_VERSION}" ;;
     snow)                   want_uv snow "snowflake-cli==${SNOW_VERSION}" ;;
+    prefect)                want_uv prefect "prefect==${PREFECT_VERSION}" ;;
     acli)                   want_apt acli atlassian acli ;;
     *)                      unknown_tools+=("${tool}") ;;
   esac
@@ -311,11 +313,11 @@ if [ ${#apt_pkgs[@]} -gt 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Non-apt installs. Today this phase holds `uv tool install` alone — snow is the
-# one requestable tool with no apt repository behind it — but it is where any
-# future tool that does not come from a vendor repository lands, which is why it
-# is a phase and not a snow-shaped special case. There is no repository setup
-# arm to match: PyPI is not an apt vendor.
+# Non-apt installs. Today this phase holds `uv tool install` alone — snow and
+# prefect are the requestable tools with no apt repository behind them — but it
+# is where any future tool that does not come from a vendor repository lands,
+# which is why it is a phase and not a per-tool special case. There is no
+# repository setup arm to match: PyPI is not an apt vendor.
 #
 # UV_TOOL_BIN_DIR puts the shim in /usr/local/bin, which every session's PATH
 # already carries, rather than uv's default ~/.local/bin, which a non-login
@@ -642,6 +644,7 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
     az)                     verify_version az "${AZ_VERSION%%-*}" az_reported_version ;;
     kubectl)                verify_version kubectl "v${KUBECTL_VERSION%%-*}" kubectl_reported_version ;;
     snow)                   verify_version snow "${SNOW_VERSION}" snow_reported_version ;;
+    prefect)                verify_version prefect "${PREFECT_VERSION}" prefect --version ;;
     acli)                   verify_runs acli acli --version ;;
   esac
 done
