@@ -1,6 +1,36 @@
 # Testing
 
+## Not in a hosted web session
+
+The container suite **does not run in a Claude Code on the web session**, and
+that is settled rather than broken. Two things are in the way, and fixing the
+first only exposes the second:
+
+1. `/usr/bin/dockerd` is installed but no daemon is running, so the Docker
+   socket does not exist. The session is uid 0, so starting it by hand works.
+2. The session's egress policy then refuses Docker Hub — a `Forbidden` on
+   `ubuntu:24.04` metadata, with the proxy answering `403` to `CONNECT` for
+   `production.cloudfront.docker.com`. That is the blocker #43 hit, and #43
+   closed by moving the suite into CI rather than by opening the allowlist.
+
+So do not start the daemon and do not run `./tests/run.sh` there; both cost
+minutes and end at the same wall. What gates a change written in such a session
+is the host-side checks, which need no daemon and no network:
+
+```sh
+bash -n environment.sh          # the script still parses
+./tests/tiers.test.sh           # every case declares a tier, and --tier selects right
+./tests/check-version.test.sh   # SCRIPT_VERSION agrees with the tag it claims
+```
+
+The container suite itself is then covered by the `quick` tier on the pull
+request, running on GitHub's runners where neither problem exists — that run is
+the real gate. See the tier table below.
+
 ## Running the suite
+
+On a host with Docker (a laptop, or a CI runner — not a hosted web session; see
+above):
 
 ```sh
 ./tests/run.sh                      # every case
@@ -9,8 +39,10 @@
 ./tests/run.sh --tier quick --list  # the cases that tier selects, without running them
 ```
 
-Requirements: a reachable Docker daemon, `jq` on the host, and network access to
-`ubuntu:24.04`, `claude.ai` and the GitHub repositories the plugin steps clone.
+Requirements: a running Docker daemon the client can reach, `jq` on the host,
+and network access to `ubuntu:24.04`, `claude.ai` and the GitHub repositories
+the plugin steps clone. A hosted web session has neither the daemon nor the
+Docker Hub access and cannot be given them.
 That last one matches the `Full` network access level the environments already
 run at. `tests/run.sh` exits `2` when it cannot run (no daemon, no `jq`, an argument it
 cannot make sense of, a tier selection that would drop a case, image build
@@ -42,6 +74,10 @@ line and `--tier` selects on it.
 | --- | --- | --- |
 | `quick` | Cases that install no CLI: validation failures, the collected-failure paths, the settings shape, the shipped skill. Seconds once the base image is built, and dependent on nothing beyond Docker Hub and `claude.ai`. | `.github/workflows/tests.yml`, on `pull_request` — **this is the tier that gates a PR**. |
 | `vendor` | The selections that install real CLIs, so the run exercises the Microsoft, Google Cloud, Kubernetes, PyPI and Atlassian repositories. `az` alone is a 636 MB install and `gcloud` 883 MB. | `.github/workflows/tests-full.yml`, which runs the **whole** suite on a daily `schedule` and on `workflow_dispatch`. |
+
+Because a hosted web session cannot run any container case at all, the `quick`
+tier on the pull request is not merely the first gate such a change meets — it
+is the only one that exercises the script in a container.
 
 The split is about blast radius as much as cost: the vendor tier depends on five
 external services staying up, and wiring it to `pull_request` would turn an
