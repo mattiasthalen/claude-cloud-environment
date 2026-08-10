@@ -41,9 +41,9 @@ set -u
 
 script_version=$(sed -n 's/^SCRIPT_VERSION=//p' /harness/environment.sh | head -n 1)
 command -v curl > /tmp/harness-real-curl
-printf '%s\n' \
-  "https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v${script_version}/skills" \
-  > /tmp/harness-skills-url
+harness_raw_base=https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment
+printf '%s\n' "${harness_raw_base}" > /tmp/harness-raw-base
+printf '%s\n' "${harness_raw_base}/refs/tags/v${script_version}/skills" > /tmp/harness-skills-url
 
 cat > /usr/local/bin/curl <<'SHIM'
 #!/bin/bash
@@ -53,6 +53,7 @@ set -u
 
 real_curl=$(cat /tmp/harness-real-curl)
 skills_url=$(cat /tmp/harness-skills-url)
+raw_base=$(cat /tmp/harness-raw-base)
 
 url=""
 dest=""
@@ -67,17 +68,19 @@ for arg in "$@"; do
   prev="${arg}"
 done
 
+# Only this repo's own skill sources are intercepted. A skill file fetched from
+# anywhere else is somebody else's business and goes to the real curl, so the
+# shim cannot fail a step it was never meant to stand in for.
 case "${url}" in
-  */SKILL.md) ;;
+  "${skills_url}"/*) ;;
+  "${raw_base}"/*/skills/*)
+    echo "harness curl: refusing a skill URL that is not tag-pinned: ${url}" >&2
+    exit 22
+    ;;
   *) exec "${real_curl}" "$@" ;;
 esac
 
-if [ "${url}" != "${skills_url}/${url##*/skills/}" ]; then
-  echo "harness curl: refusing a skill URL that is not tag-pinned: ${url}" >&2
-  exit 22
-fi
-
-skill_source="/harness/skills/${url##*/skills/}"
+skill_source="/harness/skills/${url#"${skills_url}"/}"
 if [ ! -f "${skill_source}" ]; then
   echo "harness curl: no such skill source in the working tree: ${skill_source}" >&2
   exit 22
