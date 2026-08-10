@@ -74,17 +74,35 @@ From `tests/lib.sh`:
 | `assert_output_contains <text>` | Fixed-string match over stdout and stderr. |
 | `assert_output_lacks <text>` | The same match, negated — for asserting a phase did *not* run. |
 | `assert_tool_on_path <binary>` | The binary is on PATH in the container after the run. |
+| `assert_skill_installed <name>` | A non-empty `~/.claude/skills/<name>/SKILL.md` after the run. |
+| `assert_skill_absent <name>` | The negation, for a run whose fetch was arranged to fail. |
 | `assert_settings_jq <filter> <expected>` | Run a `jq` filter over the `settings.json` the run left behind; fails if it is missing or does not parse. |
 | `harness_fail <message>` | Fail with a custom message. |
 
 After `harness_run`, `HARNESS_STATUS`, `HARNESS_STDOUT`, `HARNESS_STDERR`,
-`HARNESS_SETTINGS`, `HARNESS_TOOLS` and `HARNESS_PACKAGES` hold the raw result if a case needs something the assertions
+`HARNESS_SETTINGS`, `HARNESS_TOOLS`, `HARNESS_SKILLS` and `HARNESS_PACKAGES` hold the raw result if a case needs something the assertions
 above do not cover. Every assertion failure prints the case name, the
 invocation, the exit code and the script's stdout and stderr.
 
 To assert on some other container state, extend the collection block at the end
 of `tests/container/run-case.sh` — that script runs inside the container, copies
 what the run left behind into `/out`, and never asserts.
+
+## The release-tag stand-in
+
+`environment.sh` fetches the skills it ships from its own release tag, and a
+working tree is by definition unreleased: the tag its `SCRIPT_VERSION` names
+does not exist on GitHub while the change is being written, so that fetch could
+only ever 404 in a container. `tests/container/run-case.sh` shadows `curl` with
+a shim that stands in for the tag the release will cut, serving the working
+tree's own `skills/` — mounted read-only at `/harness/skills` — for exactly the
+tag-pinned URL and refusing any other URL for a skill file rather than passing
+it to the network, where a branch ref would succeed. So a case that sees a skill
+land has thereby seen the pinned URL. Everything that is not a skill file goes
+to the real `curl`.
+
+The shim is installed before `harness_pre` runs, so a case that needs the fetch
+to fail shadows it again — `swarm-skill-fetch-failure-is-not-fatal` does.
 
 Keep cases cheap. Failure-path cases are the cheap majority because validation
 failures exit before any install work happens; expensive selections run once.
