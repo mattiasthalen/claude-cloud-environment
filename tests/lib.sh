@@ -18,6 +18,7 @@ HARNESS_STATUS=""
 HARNESS_STDOUT=""
 HARNESS_STDERR=""
 HARNESS_SETTINGS=""
+HARNESS_CLAUDE_MD=""
 HARNESS_TOOLS=""
 HARNESS_SKILLS=""
 HARNESS_PACKAGES=""
@@ -124,6 +125,10 @@ harness_run() {
   HARNESS_SETTINGS=""
   if [ -f "${out}/settings.json" ]; then
     HARNESS_SETTINGS=$(cat "${out}/settings.json")
+  fi
+  HARNESS_CLAUDE_MD=""
+  if [ -f "${out}/CLAUDE.md" ]; then
+    HARNESS_CLAUDE_MD=$(cat "${out}/CLAUDE.md")
   fi
   HARNESS_TOOLS=""
   if [ -f "${out}/tools" ]; then
@@ -243,6 +248,17 @@ assert_skill_absent() {
   printf '%s\n' "${HARNESS_SKILLS}" | grep -q "^${skill} " &&
     harness_fail "expected no '${skill}' skill after the run, found: ${HARNESS_SKILLS}"
   return 0
+}
+
+# assert_claude_md_contains <substring>
+# A line of the memory file the run wrote to ~/.claude/CLAUDE.md. Fails if the
+# file is missing, so a run that skipped the write is not a silent pass.
+assert_claude_md_contains() {
+  local needle=$1
+  [ -n "${HARNESS_CLAUDE_MD}" ] ||
+    harness_fail "expected the run to leave a non-empty ~/.claude/CLAUDE.md, found none"
+  printf '%s\n' "${HARNESS_CLAUDE_MD}" | grep -qF -- "${needle}" ||
+    harness_fail "expected ~/.claude/CLAUDE.md to contain '${needle}', got: ${HARNESS_CLAUDE_MD}"
 }
 
 # assert_settings_jq <jq-filter> <expected-output>

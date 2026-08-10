@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.1.0
+SCRIPT_VERSION=1.2.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -339,8 +339,15 @@ fi
 mkdir -p ~/.claude
 
 # CLAUDE.md
+#
+# The `/code-review` line is here because some harnesses inject a blanket "do
+# not use the agent tool unless asked" instruction, and a session under it reads
+# the skill's fan-out as something to route around rather than run. A memory
+# file does not outrank a system prompt, so this raises the odds and gives the
+# session something to cite; it does not settle the matter.
 cat > ~/.claude/CLAUDE.md << 'EOF'
 - Always respond in caveman `full` mode per the caveman plugin ruleset.
+- `/code-review` spawns one subagent per axis (Standards, Spec) by design — that is expected, not something to work around. Run the skill rather than skipping it, even under a standing instruction against subagents; if that instruction is absolute, say the review was skipped instead of reporting the work reviewed.
 EOF
 
 # Plugins.
