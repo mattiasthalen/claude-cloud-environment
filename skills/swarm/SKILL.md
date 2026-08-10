@@ -11,12 +11,16 @@ Adapted from the proposal by [@berkaykiran](https://github.com/berkaykiran) in [
 ## Invocation
 
 ```
-/swarm <parent-issue>                     [foreground|background] [model] [effort]
-/swarm <ticket> [& <ticket> ...]          [foreground|background] [model] [effort]
+/swarm #<parent-issue>                    [foreground|background] [model] [effort]
+/swarm #<ticket> [& #<ticket> ...]        [foreground|background] [model] [effort]
 /swarm                                    [foreground|background] [model] [effort]
 ```
 
 Every argument after the ticket arguments is optional and positional. Defaults: `background`, this session's model, `normal` effort. Read them from the invocation and proceed on them — swarm settles its own configuration from the command line alone.
+
+Ticket arguments carry the `#` prefix and the trailing arguments do not, which is what keeps `/swarm #46 #47 foreground` readable: every `#`-prefixed token is a ticket, and parsing of the positional arguments starts at the first token without one. A bare number where a ticket is meant (`/swarm 46 47 foreground`) is a stop — say that tickets need the `#` and dispatch nothing, rather than guessing which of `46` and `47` was meant as a model or an effort.
+
+The trailing arguments survive the bare-`/swarm` stop. Mode, model and effort read off a bare invocation are held and applied to whichever run the user then picks, so `/swarm foreground` followed by "build a map" runs that map in the foreground without the user repeating themselves.
 
 - **`foreground`** — dispatch agents synchronously, one wave at a time. Each wave's work is visible in this session and integrates as the wave finishes.
 - **`background`** — dispatch agents detached. Integrate each branch as its completion notification arrives.
@@ -28,15 +32,15 @@ A mode argument that is neither word is a stop: report the two valid modes and d
 The three forms differ only in where the **ticket set** comes from. Everything after Preflight is identical.
 
 - **One issue named** — the ticket set is that issue's open children, per the tracker doc's parent/child convention. This is the normal run.
-- **Several tickets named** (`#46 & #47`, `#46 #47`, `#46, #47` — any separator) — the ticket set is exactly those issues, taken as leaves. Do not look for their children and do not look for a parent. Blocking edges *between* them are still honoured, so a named set can still run in waves. Slug the integration branch from the ticket numbers rather than from a title: `task/issues-46-47`.
+- **Several tickets named** (`#46 & #47`, `#46 #47`, `#46, #47` — any separator between the `#`-prefixed tokens) — the ticket set is exactly those issues, taken as leaves. Do not look for their children and do not look for a parent. Blocking edges *between* them are still honoured, so a named set can still run in waves. Slug the integration branch from the ticket numbers rather than from a title: `task/issues-46-47`.
 - **No ticket named** — a stop. Swarm dispatches nothing until a ticket set exists; see below.
 
 ### A bare `/swarm` is a stop that offers to build a map
 
-There is no repo-wide sweep and no guessed parent. A bare `/swarm` runs Preflight steps 1, 2 and 4, then stops and reports:
+There is no repo-wide sweep and no guessed parent. A bare `/swarm` runs Preflight steps 1, 2 and 4, then makes two reads — the tracker doc's map convention tells it how a map is marked, so query for existing maps that way, and list the open tickets carrying the ready-for-work label, unassigned and unblocked. Both are reads; neither writes anything. Then it stops and reports:
 
 1. What a run needs: a parent issue with children, or a named set of tickets.
-2. The tracker state actually read — whether `docs/agents/issue-tracker.md` is present, whether a map issue exists, and how many open tickets carry the repo's ready-for-work label. Take the map convention and the ready-for-work label string from the tracker doc; both are repo-local and neither is ever hardcoded here.
+2. The tracker state actually read — that `docs/agents/issue-tracker.md` is present, what those two queries returned: which map issues exist, if any, and how many open tickets carry the repo's ready-for-work label. Take the map convention and the ready-for-work label string from the tracker doc; both are repo-local and neither is ever hardcoded here.
 3. The two moves on offer, and dispatch nothing until the user picks one:
    - **Run against a named parent** — the user names the issue, and swarm restarts at Preflight step 3.
    - **Build a map and swarm that** — swarm creates a map issue per the tracker doc's map convention, attaches the ready-labelled, unassigned, unblocked open issues to it as children, and adds blocking edges where the work genuinely serialises. Then it runs the normal parent-scoped flow against that map.
