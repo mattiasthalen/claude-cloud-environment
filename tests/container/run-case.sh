@@ -132,5 +132,10 @@ done
 # epoch-versioned `kubectl` that is a different package at the same command.
 dpkg-query -W -f '${Package} ${Version}\n' > /out/packages 2> /dev/null
 
+# Everything above ran as root, and `cp` carries the source's mode across — so
+# a file the script wrote for its own eyes only, as settings.json is, lands in
+# /out unreadable to a host user who is not root. The host reads all of this.
+chmod -R a+rX /out
+
 # Always zero: a failing script is a result to report, not a harness error.
 exit 0
