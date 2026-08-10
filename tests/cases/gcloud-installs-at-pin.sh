@@ -5,6 +5,7 @@
 # same pin through the single batched install, gcloud verifies against that pin,
 # and the add-on's row asserts invocability only — it prints a Kubernetes client
 # version, which is not comparable to the apt pin.
+# tier: vendor
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 pin=$(harness_pin GCLOUD_VERSION)

@@ -5,6 +5,7 @@
 #
 # The failure is arranged in the container, by shadowing the CLI the plugin
 # steps call, rather than by any test affordance in the script.
+# tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_pre <<'PRE'

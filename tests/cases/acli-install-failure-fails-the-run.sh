@@ -4,6 +4,7 @@
 # directory unwritable the repository never gets configured, the batched install
 # cannot find the package, and both failures are named in the one recap. acli is
 # not then re-verified: a tool whose install already failed is reported once.
+# tier: vendor
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_pre <<'PRE'

@@ -6,6 +6,7 @@
 #
 # The first run is arranged in the container, through the same seam as the
 # second — the script gets no test affordance for this.
+# tier: vendor
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 pin=$(harness_pin SNOW_VERSION)

@@ -8,6 +8,7 @@
 # deliberately says nothing about that. What it does say is that no name in the
 # valid set is rejected as unknown, and that validation lets the run proceed
 # past the argument pass.
+# tier: vendor
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_run gcloud gke-gcloud-auth-plugin az kubectl snow acli

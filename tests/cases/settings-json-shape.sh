@@ -3,6 +3,7 @@
 # depends on: the permission mode and both enabledPlugins entries. The plugin
 # commands rewrite this file, so the shape it ends up with is the contract, not
 # the shape the script's jq filter asks for.
+# tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_run

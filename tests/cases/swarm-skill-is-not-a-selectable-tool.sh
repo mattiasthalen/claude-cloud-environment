@@ -3,6 +3,7 @@
 # unknown name like any other typo, and the valid-tools line does not offer it —
 # the selection list exists for CLIs, which are heavy and per-environment, and a
 # skill that every environment gets unconditionally has nothing to select.
+# tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_run swarm

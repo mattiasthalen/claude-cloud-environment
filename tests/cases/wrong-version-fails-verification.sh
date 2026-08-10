@@ -3,6 +3,7 @@
 # reinstalled. The presence guard leaves it alone — it deliberately does not
 # check versions and does not self-heal — and verification is what surfaces the
 # mismatch, carrying both the version found and the version expected.
+# tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 pin=$(harness_pin KUBECTL_VERSION)

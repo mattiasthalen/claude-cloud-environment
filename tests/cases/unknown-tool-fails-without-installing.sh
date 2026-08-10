@@ -2,6 +2,7 @@
 # A mistyped tool name fails in the first second: the run exits non-zero with a
 # message naming the bad name and the valid set, and it does so before any
 # other work happens — no plugin step ran, and no settings.json was left behind.
+# tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_run kubectl kubctl

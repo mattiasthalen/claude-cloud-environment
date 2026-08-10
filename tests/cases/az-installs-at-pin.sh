@@ -4,6 +4,7 @@
 # install carried the pin, and the binary that resulted actually runs.
 #
 # This is the only az case, deliberately — the install is 636 MB.
+# tier: vendor
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 pin=$(harness_pin AZ_VERSION)

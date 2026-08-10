@@ -1,0 +1,33 @@
+name: tests (quick tier)
+
+# The tier that gates a pull request: every case that installs no CLI. It needs
+# Docker Hub and claude.ai and nothing else, so a hiccup at a vendor repository
+# cannot turn an unrelated change red. The rest of the suite runs in
+# tests-full.yml on a schedule. Which tier a case belongs to is declared in the
+# case file, so this workflow names no case and cannot fall out of date with
+# tests/cases/ — see docs/agents/testing.md.
+on:
+  pull_request:
+
+# The suite only reads the tree; the containers it builds are the runner's.
+permissions:
+  contents: read
+
+jobs:
+  quick:
+    runs-on: ubuntu-latest
+    # The tier installs no CLI, so it is minutes at most; the default 360 would
+    # let a wedged image build sit on the gate for an afternoon.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Cheap, daemon-free, and the guard against a new case belonging to no
+      # tier — which would otherwise silently drop it from this gate.
+      - name: Check tier selection
+        run: ./tests/tiers.test.sh
+
+      # The same seam tests-full.yml uses, rather than a second copy of the
+      # exit-code handling that could disagree with it.
+      - name: Run the quick tier
+        run: ./scripts/run-tests-ci.sh --tier quick

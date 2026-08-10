@@ -16,7 +16,7 @@ Default five-role vocabulary, with each label string equal to its role name. See
 
 ### Tests
 
-`./tests/run.sh` runs the suite: each case invokes `environment.sh` in a fresh Ubuntu 24.04 root container and asserts on its exit code, printed output and container state. See `docs/agents/testing.md`.
+`./tests/run.sh` runs the suite: each case invokes `environment.sh` in a fresh Ubuntu 24.04 root container and asserts on its exit code, printed output and container state. Cases are tiered — the `quick` tier gates pull requests, the whole suite runs on a schedule — and `./tests/tiers.test.sh` checks that tiering on the host, with no Docker daemon needed. See `docs/agents/testing.md`.
 
 ### Domain docs
 

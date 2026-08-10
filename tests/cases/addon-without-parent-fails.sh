@@ -2,6 +2,7 @@
 # An add-on requested without its parent tool is the same class of error as a
 # mistyped name and is raised in the same validation pass, so nobody ends up
 # with a plugin installed and nothing to plug it into.
+# tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_run kubectl gke-gcloud-auth-plugin

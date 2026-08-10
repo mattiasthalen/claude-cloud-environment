@@ -1,0 +1,33 @@
+name: tests (full suite)
+
+# Every case, including the vendor tier: the selections that install real CLIs
+# from the Microsoft, Google Cloud, Kubernetes, PyPI and Atlassian repositories.
+# az alone is a 636 MB install and gcloud 883 MB, and the run depends on five
+# external services staying up — which is why this is a schedule rather than a
+# pull-request check. A red run here means either a case regressed or a vendor
+# moved; both are worth knowing about, neither should block an unrelated change.
+on:
+  schedule:
+    # 04:17 UTC daily. Off the hour, because the hour is when every other cron
+    # on the runner fleet fires.
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+# The suite only reads the tree; the containers it builds are the runner's.
+permissions:
+  contents: read
+
+jobs:
+  full:
+    runs-on: ubuntu-latest
+    # The vendor tier installs over 1.5 GB across its cases; the default 360
+    # minutes is far more headroom than that needs.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      # The same seam tests.yml uses, rather than a second copy of the
+      # exit-code handling that could disagree with it. No tier argument: this
+      # is the whole suite, including any case that declares no tier.
+      - name: Run the full suite
+        run: ./scripts/run-tests-ci.sh

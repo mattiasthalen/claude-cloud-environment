@@ -5,13 +5,16 @@
 ```sh
 ./tests/run.sh                      # every case
 ./tests/run.sh settings-json-shape  # named cases only
+./tests/run.sh --tier quick         # one tier only
+./tests/run.sh --tier quick --list  # the cases that tier selects, without running them
 ```
 
 Requirements: a reachable Docker daemon, `jq` on the host, and network access to
 `ubuntu:24.04`, `claude.ai` and the GitHub repositories the plugin steps clone.
 That last one matches the `Full` network access level the environments already
-run at. `tests/run.sh` exits `2` when it cannot run (no daemon, no `jq`, unknown
-case name, image build failure), `1` when a case fails, `0` when all pass.
+run at. `tests/run.sh` exits `2` when it cannot run (no daemon, no `jq`, an argument it
+cannot make sense of, a tier selection that would drop a case, image build
+failure), `1` when a case fails, `0` when all pass.
 
 The first run builds `claude-cloud-environment-tests:base` from
 `tests/base.Dockerfile` — Ubuntu 24.04 as root, pinned to `linux/amd64` because
@@ -26,6 +29,34 @@ Behind a TLS-intercepting proxy the harness passes `HTTPS_PROXY`/`HTTP_PROXY`/
 host network so a loopback proxy is reachable, and installs the CA bundle named
 by `SSL_CERT_FILE` or `CURL_CA_BUNDLE` into the image. With no proxy configured
 none of that applies.
+
+## Tiers, and which one gates a pull request
+
+The suite is not uniformly cheap, so every case declares a tier in a `# tier:`
+line and `--tier` selects on it.
+
+| Tier | What is in it | Where it runs |
+| --- | --- | --- |
+| `quick` | Cases that install no CLI: validation failures, the collected-failure paths, the settings shape, the shipped skill. Seconds once the base image is built, and dependent on nothing beyond Docker Hub and `claude.ai`. | `.github/workflows/tests.yml`, on `pull_request` — **this is the tier that gates a PR**. |
+| `vendor` | The selections that install real CLIs, so the run exercises the Microsoft, Google Cloud, Kubernetes, PyPI and Atlassian repositories. `az` alone is a 636 MB install and `gcloud` 883 MB. | `.github/workflows/tests-full.yml`, which runs the **whole** suite on a daily `schedule` and on `workflow_dispatch`. |
+
+The split is about blast radius as much as cost: the vendor tier depends on five
+external services staying up, and wiring it to `pull_request` would turn an
+upstream hiccup into a red check on an unrelated change.
+
+The tier lives in the case file rather than in a list inside a workflow, which
+would drift the first time someone added a case. A case that declares no tier
+belongs to no tier, so `--tier` refuses to select anything and exits `2` until
+it is declared — a new case cannot silently run nowhere. An untiered run still
+runs that case and says so on stderr: a missing comment line is a reason to
+fail a tier selection, not a reason for the scheduled full suite to run nothing.
+`tests/tiers.test.sh` checks the rule and the selection on the host, with no
+Docker daemon needed, and the pull-request workflow runs it before the suite.
+
+Both workflows call `scripts/run-tests-ci.sh`, one seam rather than two copies,
+which turns the runner's exit `2` (the suite could not run at all) and exit `1`
+(it ran and a case failed) into different annotations, because the two need
+different fixes.
 
 ## What the tests are allowed to assert on
 
@@ -47,11 +78,14 @@ starting state arranges it in the container with `harness_pre`.
 ## Adding a case
 
 Add one file to `tests/cases/`; the runner picks it up by filename. The name is
-what a failure reports, so name it after the behaviour.
+what a failure reports, so name it after the behaviour. Declare a tier — `quick`
+if the case installs no CLI, `vendor` if it does; without one the runner refuses
+to select any case at all.
 
 ```sh
 #!/bin/bash
 # One or two lines saying which behaviour this pins and why it matters.
+# tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_run kubectl          # arbitrary argument list; none is valid too
