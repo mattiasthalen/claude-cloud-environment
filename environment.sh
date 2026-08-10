@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.3.0
+SCRIPT_VERSION=1.4.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -18,6 +18,10 @@ KUBECTL_MINOR=1.34
 KUBECTL_VERSION=1.34.10-1.1
 SNOW_VERSION=3.16.0
 PREFECT_VERSION=3.8.2
+# kubelogin is pinned without the leading `v` its release tags carry, so it reads
+# like every other pin here. The tag, the archive URL and the version the binary
+# reports are all built from this one value.
+KUBELOGIN_VERSION=0.2.19
 # acli: deliberately unpinned — upstream offers no pin, and asserting a version
 # would turn any upstream acli release into a session-blocking failure for every
 # environment that requested it.
@@ -76,11 +80,17 @@ report_failures() {
 #   2. one `case` arm below, appending to the accumulators, with the new name
 #      added to VALID_TOOLS,
 #   3. one arm in the verification block at the bottom of this file,
-#   4. one repository setup arm — only if the vendor is not already used.
+#   4. the install path the tool needs, which is one of three:
+#      - apt, through `want_apt`: plus one repository setup arm, and only if the
+#        vendor is not already used,
+#      - PyPI, through `want_uv`: nothing else, PyPI is not an apt vendor,
+#      - an upstream release archive, through `want_release`: plus one installer
+#        function and one arm in the release install phase, because no two
+#        projects lay their archives out the same way.
 #
-# Arms append through `want_apt` / `want_uv` rather than touching the arrays
-# directly, so the presence guard is applied in one place instead of once per
-# tool.
+# Arms append through `want_apt` / `want_uv` / `want_release` rather than
+# touching the arrays directly, so the presence guard is applied in one place
+# instead of once per tool.
 #
 # The `case` below only appends; it installs nothing. Collecting the whole
 # selection before installing anything is what makes the outcome independent of
@@ -89,7 +99,7 @@ report_failures() {
 # lose depending on argument order.
 # ---------------------------------------------------------------------------
 
-VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli"
+VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli kubelogin"
 
 requested_tools=()
 unknown_tools=()
@@ -98,6 +108,8 @@ apt_pkgs=()
 apt_tools=()
 uv_pkgs=()
 uv_tools=()
+release_pins=()
+release_tools=()
 
 # Presence guard. A tool already on PATH contributes nothing to the install —
 # that, and not a swallowed exit code, is what makes a re-run a no-op. The guard
@@ -131,6 +143,19 @@ want_uv() {
   uv_tools+=("${tool}")
 }
 
+# want_release <tool> <version>
+# A tool whose upstream ships neither an apt package nor a PyPI distribution,
+# only a release archive. release_tools stays parallel to release_pins for the
+# same reason apt_tools and uv_tools do: a failed install has to be attributable
+# back to the tool it was carrying. The pin travels with the tool so the step
+# name can carry it, the way the apt and PyPI step names carry theirs.
+want_release() {
+  local tool=$1 version=$2
+  tool_present "${tool}" && return 0
+  release_pins+=("${version}")
+  release_tools+=("${tool}")
+}
+
 for tool in "$@"; do
   requested_tools+=("${tool}")
   case "${tool}" in
@@ -141,6 +166,7 @@ for tool in "$@"; do
     snow)                   want_uv snow "snowflake-cli==${SNOW_VERSION}" ;;
     prefect)                want_uv prefect "prefect==${PREFECT_VERSION}" ;;
     acli)                   want_apt acli atlassian acli ;;
+    kubelogin)              want_release kubelogin "${KUBELOGIN_VERSION}" ;;
     *)                      unknown_tools+=("${tool}") ;;
   esac
 done
@@ -313,10 +339,10 @@ if [ ${#apt_pkgs[@]} -gt 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Non-apt installs. Today this phase holds `uv tool install` alone — snow and
-# prefect are the requestable tools with no apt repository behind them — but it
-# is where any future tool that does not come from a vendor repository lands,
-# which is why it is a phase and not a per-tool special case. There is no
+# PyPI installs. `uv tool install` for every tool whose upstream ships a Python
+# distribution and no apt package — snow and prefect today. It is a phase rather
+# than a per-tool special case, and it runs after the apt batch so the outcome
+# stays independent of the order the tools were listed in. There is no
 # repository setup arm to match: PyPI is not an apt vendor.
 #
 # UV_TOOL_BIN_DIR puts the shim in /usr/local/bin, which every session's PATH
@@ -334,6 +360,83 @@ if [ ${#uv_pkgs[@]} -gt 0 ]; then
       env UV_TOOL_BIN_DIR=/usr/local/bin uv tool install --python 3.12 "${uv_pkgs[i]}"
     if [ ${#FAILED_STEPS[@]} -ne "${uv_failures_before}" ]; then
       failed_tools+=("${uv_tools[i]}")
+    fi
+  done
+fi
+
+# ---------------------------------------------------------------------------
+# Release-archive installs. The third and last install phase, for a tool whose
+# upstream publishes neither an apt package nor a Python distribution — only a
+# built archive on a GitHub release. It runs after the apt batch and the PyPI
+# phase for the same reason that one does: every phase installs what the whole
+# selection asked for, so the outcome does not depend on argument order.
+#
+# There is no shared installer, only a shared shape: no two projects name their
+# archive, lay it out or checksum it the same way, so each tool gets its own
+# function and the phase below is the dispatch. What every one of them owes:
+#
+#   - build every URL from the pin, so the lockfile stays the only place a
+#     version is written,
+#   - fail loudly and install nothing on a download that did not arrive whole —
+#     a truncated archive must not become a binary on PATH,
+#   - land the binary in /usr/local/bin, which every session's PATH already
+#     carries, and not in ~/.local/bin, which a non-login shell need not,
+#   - leave no partial install behind: the binary appears on PATH in one move,
+#     after the archive has been verified and extracted, or not at all.
+# ---------------------------------------------------------------------------
+
+# kubelogin. Upstream ships one zip per platform plus a sha256 sidecar generated
+# from it, and `kubelogin-linux-amd64.zip` carries the single binary at
+# bin/linux_amd64/kubelogin. amd64 is the only architecture this script targets;
+# a second one would be a second pin and a second archive, not a guess made here.
+#
+# The sidecar is what turns a half-delivered download into a failed step: `curl
+# -f` catches a dead pin, a 404 or a proxy error page, and `sha256sum -c` catches
+# the transfer that started fine and stopped early. Both run before anything is
+# extracted, so a broken download costs a recap line and nothing else.
+#
+# The archive is unpacked with Python's `zipfile` module through `uv`, which the
+# base image already carries and which the PyPI phase already depends on. The
+# alternative was `apt-get install unzip` — an apt run in a selection that may
+# have named no apt tool at all, which is exactly what this phase exists to
+# avoid. `zipfile` does not carry the executable bit across, so `install` sets
+# the mode; it also writes the destination in one move, which is what keeps a
+# failure from leaving a half-written kubelogin on PATH.
+install_kubelogin() {
+  local base="https://github.com/Azure/kubelogin/releases/download/v${KUBELOGIN_VERSION}"
+  local archive=kubelogin-linux-amd64.zip
+  local workdir
+
+  workdir=$(mktemp -d) || return 1
+  # shellcheck disable=SC2064
+  trap "rm -rf '${workdir}'" RETURN
+
+  curl -fsSL "${base}/${archive}" -o "${workdir}/${archive}" || return 1
+  curl -fsSL "${base}/${archive}.sha256" -o "${workdir}/${archive}.sha256" || return 1
+  (cd "${workdir}" && sha256sum -c "${archive}.sha256") || return 1
+
+  uv run --python 3.12 --no-project python -m zipfile \
+    -e "${workdir}/${archive}" "${workdir}/unpacked" < /dev/null || return 1
+
+  install -m 0755 "${workdir}/unpacked/bin/linux_amd64/kubelogin" /usr/local/bin/kubelogin
+}
+
+if [ ${#release_tools[@]} -gt 0 ]; then
+  for i in "${!release_tools[@]}"; do
+    release_failures_before=${#FAILED_STEPS[@]}
+    # The step name carries the tool and its pin, so a pin that no longer exists
+    # upstream is named in the recap as well as in curl's own error text.
+    case "${release_tools[i]}" in
+      kubelogin)
+        run_step "release install kubelogin v${release_pins[i]}" install_kubelogin
+        ;;
+      *)
+        echo "environment.sh: no release installer for tool: ${release_tools[i]}" >&2
+        FAILED_STEPS+=("release install ${release_tools[i]}")
+        ;;
+    esac
+    if [ ${#FAILED_STEPS[@]} -ne "${release_failures_before}" ]; then
+      failed_tools+=("${release_tools[i]}")
     fi
   done
 fi
@@ -593,6 +696,14 @@ kubectl_reported_version() {
   kubectl version --client | sed -n 's/^Client Version: *//p'
 }
 
+# kubelogin prints a block, and the line that carries the release reads
+# `git hash: v<version>/<commit>` — the tag the binary was built at, followed by
+# the commit it was cut from. The tag alone is what the pin names, so the commit
+# is dropped here rather than being worked into the expected string.
+kubelogin_reported_version() {
+  kubelogin --version | sed -n 's|^git hash: \([^/]*\).*|\1|p'
+}
+
 # Read-back of the file written above: it has to parse as JSON and carry the
 # keys a session depends on. `claude plugin list` is deliberately not consulted —
 # its output format is not a contract.
@@ -646,6 +757,7 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
     snow)                   verify_version snow "${SNOW_VERSION}" snow_reported_version ;;
     prefect)                verify_version prefect "${PREFECT_VERSION}" prefect --version ;;
     acli)                   verify_runs acli acli --version ;;
+    kubelogin)              verify_version kubelogin "v${KUBELOGIN_VERSION}" kubelogin_reported_version ;;
   esac
 done
 
