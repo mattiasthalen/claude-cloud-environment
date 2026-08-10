@@ -20,7 +20,7 @@ Reviews run through `/code-review`, which spawns one subagent per axis — Stand
 
 ### Tests
 
-`./tests/run.sh` runs the suite: each case invokes `environment.sh` in a fresh Ubuntu 24.04 root container and asserts on its exit code, printed output and container state. Cases are tiered — the `quick` tier gates pull requests, the whole suite runs on a schedule — and `./tests/tiers.test.sh` checks that tiering on the host, with no Docker daemon needed. See `docs/agents/testing.md`.
+`./tests/run.sh` runs the suite: each case invokes `environment.sh` in a fresh Ubuntu 24.04 root container and asserts on its exit code, printed output and container state. Cases are tiered — the `quick` tier gates pull requests, the whole suite runs on a schedule — and `./tests/tiers.test.sh` checks that tiering on the host, with no Docker daemon needed. A hosted web session cannot run the container suite at all — no daemon, and no Docker Hub access to give it one — so there the gate is `bash -n environment.sh`, `./tests/tiers.test.sh`, `./tests/check-version.test.sh` plus the PR's `quick` tier. See `docs/agents/testing.md`.
 
 ### Domain docs
 
