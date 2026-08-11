@@ -602,6 +602,25 @@ run_step "marketplace add JuliusBrussee/caveman" \
 run_step "plugin install caveman@caveman" \
   claude plugin install caveman@caveman </dev/null
 
+# The caveman plugin's SessionStart hook appends a "STATUSLINE SETUP NEEDED"
+# block to the ruleset it injects, telling the session to proactively offer to
+# configure a statusline badge. The hook suppresses it once either a
+# `statusLine` key exists in settings.json or this marker file does, and it
+# calls that one-shot — which it is, on a machine that persists. An environment
+# provisioned by this script does not persist: every session starts from a fresh
+# container, so "once" becomes "every session, forever". Pre-creating the marker
+# is what makes the one-shot actually fire zero times here.
+#
+# The marker rather than a real `statusLine` entry, because the badge is not
+# wanted and configuring it would point settings.json at a version-pinned path
+# inside the plugin cache, which the next plugin update moves.
+#
+# The marker filename is a plugin internal and could be renamed upstream, which
+# would silently bring the nudge back. Accepted for now; the durable fix is an
+# opt-out the plugin supports on purpose.
+run_step "suppress caveman statusline nudge" \
+  touch ~/.claude/.caveman-nudge-shown
+
 # ---------------------------------------------------------------------------
 # Skills this repo ships.
 #

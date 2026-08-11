@@ -11,6 +11,8 @@
 #   /out/status              the script's exit code
 #   /out/settings.json       ~/.claude/settings.json as the run left it, if any
 #   /out/CLAUDE.md           ~/.claude/CLAUDE.md as the run left it, if any
+#   /out/claude-dotfiles     the dotfile names directly under ~/.claude, one
+#                            per line, empty when there are none
 #   /out/tools               the tools the run left on PATH
 #   /out/skills              the skills the run left installed
 #   /out/packages            the apt packages the container has
@@ -112,6 +114,16 @@ fi
 if [ -f "${HOME}/.claude/CLAUDE.md" ]; then
   cp "${HOME}/.claude/CLAUDE.md" /out/CLAUDE.md
 fi
+
+# The dotfiles under ~/.claude, by name only. Some of what the script leaves
+# there is a marker whose whole content is its existence — the caveman plugin's
+# nudge suppressor is one — so the names are the state worth collecting, and
+# copying the files would say no more.
+: > /out/claude-dotfiles
+for dotfile in "${HOME}"/.claude/.*; do
+  [ -f "${dotfile}" ] || continue
+  basename "${dotfile}" >> /out/claude-dotfiles
+done
 
 # Which of the tools this script installs ended up on PATH, one `NAME PATH` line
 # each. Absence is a result too, so the file is written either way.
