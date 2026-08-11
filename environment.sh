@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.6.0
+SCRIPT_VERSION=1.7.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -28,6 +28,13 @@ KUBELOGIN_VERSION=0.2.19
 # value. Upstream also publishes a `currentVersion.txt` naming the latest
 # release, which is exactly the floating source this block rules out.
 NEWRELIC_VERSION=0.113.4
+# helm is pinned without the leading `v` its release archives carry, like the
+# other two release-archive tools: the archive URL, the checksum sidecar and the
+# version the binary reports are all built from this one value. Upstream also
+# serves a `helm-latest-version` pointer, which is the floating source this block
+# rules out. The major is a decision rather than a default — see
+# docs/adr/0001-helm-4-over-helm-3.md.
+HELM_VERSION=4.2.3
 # acli: deliberately unpinned — upstream offers no pin, and asserting a version
 # would turn any upstream acli release into a session-blocking failure for every
 # environment that requested it.
@@ -105,7 +112,7 @@ report_failures() {
 # lose depending on argument order.
 # ---------------------------------------------------------------------------
 
-VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli kubelogin newrelic"
+VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli kubelogin newrelic helm"
 
 requested_tools=()
 unknown_tools=()
@@ -175,6 +182,7 @@ for tool in "$@"; do
     acli)                   want_apt acli atlassian acli ;;
     kubelogin)              want_release kubelogin "${KUBELOGIN_VERSION}" ;;
     newrelic)               want_release newrelic "${NEWRELIC_VERSION}" ;;
+    helm)                   want_release helm "${HELM_VERSION}" ;;
     *)                      unknown_tools+=("${tool}") ;;
   esac
 done
@@ -486,6 +494,47 @@ install_newrelic() {
   install -m 0755 "${workdir}/newrelic" /usr/local/bin/newrelic
 }
 
+# helm. Upstream's documented download is a release archive from get.helm.sh,
+# the host `get_helm.sh` itself pulls from, and that is where the checksum
+# sidecars live too. The same files are cut as GitHub release assets; taking
+# them from the vendor host keeps the install from depending on GitHub staying
+# reachable. Helm's apt repository is community-hosted on a CDN rather than
+# published by the project, so the apt path this script uses for a vendor
+# repository does not apply.
+#
+# The sidecar is per-archive and already carries `<hash>  <filename>`, so it
+# goes to `sha256sum -c` whole — no line has to be selected out of it the way
+# newrelic's combined checksums file needs. `curl -f` catches a dead pin, and
+# the checksum catches a transfer that started fine and stopped early; both run
+# before anything is extracted.
+#
+# The archive nests its payload under `linux-amd64/`, so extraction names
+# `linux-amd64/helm` and leaves the README.md and LICENSE beside it packed.
+# `install` writes the destination in one move, which is what keeps a failure
+# from leaving a half-written helm on PATH.
+#
+# The tool is installed, not configured: no chart repositories added, no plugins
+# installed, no cache or config directories seeded. A session's charts and
+# registries are the box's business rather than this script's.
+install_helm() {
+  local version=$1
+  local base="https://get.helm.sh"
+  local archive="helm-v${version}-linux-amd64.tar.gz"
+  local workdir
+
+  workdir=$(mktemp -d) || return 1
+  # shellcheck disable=SC2064
+  trap "rm -rf '${workdir}'" RETURN
+
+  curl -fsSL "${base}/${archive}" -o "${workdir}/${archive}" || return 1
+  curl -fsSL "${base}/${archive}.sha256sum" -o "${workdir}/${archive}.sha256sum" || return 1
+  (cd "${workdir}" && sha256sum -c "${archive}.sha256sum") || return 1
+
+  tar -xzf "${workdir}/${archive}" -C "${workdir}" linux-amd64/helm || return 1
+
+  install -m 0755 "${workdir}/linux-amd64/helm" /usr/local/bin/helm
+}
+
 if [ ${#release_tools[@]} -gt 0 ]; then
   for i in "${!release_tools[@]}"; do
     release_failures_before=${#FAILED_STEPS[@]}
@@ -497,6 +546,9 @@ if [ ${#release_tools[@]} -gt 0 ]; then
         ;;
       newrelic)
         run_step "release install newrelic v${release_pins[i]}" install_newrelic "${release_pins[i]}"
+        ;;
+      helm)
+        run_step "release install helm v${release_pins[i]}" install_helm "${release_pins[i]}"
         ;;
       *)
         echo "environment.sh: no release installer for tool: ${release_tools[i]}" >&2
@@ -833,6 +885,11 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
     acli)                   verify_runs acli acli --version ;;
     kubelogin)              verify_version kubelogin "v${KUBELOGIN_VERSION}" kubelogin_reported_version ;;
     newrelic)               verify_version newrelic "${NEWRELIC_VERSION}" newrelic_reported_version ;;
+    # helm's --template takes a Go template over the same struct `helm version`
+    # prints, so asking for .Version alone gives exactly `v<version>` and needs
+    # no reader function of its own. `--short` would append the build commit,
+    # which is what the other two release tools have to strip.
+    helm)                   verify_version helm "v${HELM_VERSION}" helm version --template '{{.Version}}' ;;
   esac
 done
 

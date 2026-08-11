@@ -12,8 +12,8 @@ immutable tag and pipe it into `bash`, listing the tools that environment needs
 as positional arguments.
 
 ```
-# environment.sh v1.6.0
-curl -sL https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v1.6.0/environment.sh | bash -s -- gcloud kubectl gke-gcloud-auth-plugin snow
+# environment.sh v1.7.0
+curl -sL https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v1.7.0/environment.sh | bash -s -- gcloud kubectl gke-gcloud-auth-plugin snow
 ```
 
 The tag is what makes the box a decision: a change reaches an environment only
@@ -23,8 +23,8 @@ be a moving target and is not a release tag here.
 
 The argument list is the complete manifest of what gets installed. Valid names
 are the binary names: `gcloud`, `az`, `kubectl`, `snow`, `prefect`, `acli`,
-`kubelogin`, `newrelic`, and the add-on `gke-gcloud-auth-plugin` (which requires
-`gcloud` in the same list).
+`kubelogin`, `newrelic`, `helm`, and the add-on `gke-gcloud-auth-plugin` (which
+requires `gcloud` in the same list).
 An unknown name fails before anything is installed. No arguments is a valid
 invocation and installs the plugins and settings only.
 
