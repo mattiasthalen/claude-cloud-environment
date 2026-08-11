@@ -108,25 +108,46 @@ Claim each ticket through the tracker's claim operation as it is dispatched.
 >
 > Effort: `<effort>`.
 
-Do not call `/implement` — its `disable-model-invocation: true` makes the Skill tool refuse a subagent's call, which is why the workflow is inlined above. Its review half is inlined too, but on the orchestrator's side: an agent dispatched here implements, and step 4 reviews.
+Do not call `/implement` — its `disable-model-invocation: true` makes the Skill tool refuse *any* model's call, yours as well as a subagent's, which is why the workflow is inlined above. Only a human typing the command invokes it, so there is no arrangement of this skill that reaches it. Its review half is inlined too, but on the orchestrator's side: an agent dispatched here implements, and step 4 reviews.
 
-### 4. Review, then integrate — one ticket at a time
+### 4. Review, then integrate
 
-Never two merges in flight. For each agent that reports **landed**, in completion order:
+Review comes first and reviews run together; integration follows, strictly one at a time.
 
-1. **Review it yourself, from this session, before it integrates.** Run `/code-review` on `issue/NN` against its merge-base with `task/<slug>` — the commit `issue/NN` was cut from, `git merge-base task/<slug> issue/NN`, not the branch tip. The branch has moved if an earlier ticket of this wave already landed, and reviewing against the tip would pull that ticket's diff into this one's review. You are the top-level session, so the two-axis fan-out a dispatched agent cannot launch works here, and reviewing before the merge means findings land in the ticket's own branch rather than on top of the integration branch. Act on the findings: fix them in place on `issue/NN` if the fix is small and obviously yours, otherwise comment them on #NN and carry the ticket in the final report.
-2. Rebase the ticket branch onto the integration branch, then fast-forward it in:
+**Review — run it inline, from this session.** For every agent that reports **landed**, run `/code-review` on `issue/NN` against its merge-base with `task/<slug>` — the commit `issue/NN` was cut from, `git merge-base task/<slug> issue/NN`, not the branch tip. The branch has moved if an earlier ticket of this wave already landed, and reviewing against the tip would pull that ticket's diff into this one's review. Reviewing before the merge means findings land in the ticket's own branch rather than on top of the integration branch.
+
+Run the whole reported batch's reviews together. They read distinct branches and write nothing, so nothing contends; only merges have to be serialised.
+
+Never dispatch an agent to run `/code-review` for you. That agent would have no `Agent` tool of its own, so the skill's two-axis fan-out would die exactly as it does inside an implementing agent. This session is the level the fan-out needs, which is the whole reason review moved here.
+
+**Findings — hand them to a fresh agent.** For each ticket whose review returned findings, dispatch one fix agent into that ticket's own worktree, still checked out on `issue/NN` — both are alive, because nothing has been integrated or removed yet, and the implementing agent is gone. Give the fix agent the same model and effort as the implementing agent had: a finding that took a two-axis review to spot is not a cheaper problem than the code that produced it.
+
+> You are fixing review findings on ticket #NN. Your worktree is `<abs-path>`, already checked out on branch `issue/NN`. Work only there — never `cd` out of it, never touch another worktree, never switch branches.
+>
+> The findings are below, and so are #NN's acceptance criteria. The criteria are the spec: a fix that violates them is not a fix. Where a finding contradicts the criteria, leave it and say so.
+>
+> Act on the findings you can, run `<check commands>`, and commit to `issue/NN` with a message referencing #NN. Leave the branch there — local, unmerged, unpushed.
+>
+> Report back in one paragraph: which findings you fixed, which you left and why, and whether the suite is green.
+>
+> Findings: `<the review's findings>`. Acceptance criteria: `<the ticket's criteria>`. Effort: `<effort>`.
+
+One pass, no second review — `/implement` reviews once and acts once, and so does this. A finding the fix agent leaves is carried on #NN and in the final report, the same as a finding nobody attempted. A fix agent that comes back red is not a findings problem: that is **Red** below.
+
+**Integrate.** Never two merges in flight. For each reviewed ticket, in completion order:
+
+1. Rebase the ticket branch onto the integration branch, then fast-forward it in:
    `git rebase task/<slug> issue/NN && git merge --ff-only issue/NN`.
-3. On conflict, resolve it with `/resolving-merge-conflicts` — during the rebase, so the resolution lands in the ticket's own commits.
-4. Run the full check commands on the integration branch.
-5. **Green** — keep it. Close #NN per the tracker. Remove the worktree (`git worktree remove`) and delete `issue/NN`. Record the review outcome against the ticket as you close it — *reviewed clean*, *reviewed, findings acted on*, or *not run* plus the reason.
-6. **Red** — the integration branch stays green, always. Fix it in place if the break is small and obviously yours to fix; otherwise `git reset --hard` back to the pre-integration commit, reopen the ticket, comment the failure on #NN, and treat it as parked.
+2. On conflict, resolve it with `/resolving-merge-conflicts` — during the rebase, so the resolution lands in the ticket's own commits.
+3. Run the full check commands on the integration branch.
+4. **Green** — keep it. Close #NN per the tracker. Remove the worktree (`git worktree remove`) and delete `issue/NN`. Record the review outcome against the ticket as you close it — *reviewed clean*, *reviewed, findings acted on*, *reviewed, findings open* plus what is open, or *not run* plus the reason.
+5. **Red** — the integration branch stays green, always. Fix it in place if the break is small and obviously yours to fix; otherwise `git reset --hard` back to the pre-integration commit, reopen the ticket, comment the failure on #NN, and treat it as parked.
 
 Rebase-and-fast-forward, never `--no-ff`. A merge commit per ticket makes the integration branch un-rebasable, and a repo that allows only rebase merges will refuse the resulting pull request — with the branch's history, not its content, as the reason. The first ticket of a wave fast-forwards on its own; the later ones need the rebase because the branch they were cut from has moved.
 
 Agents that report **parked** are already carrying a `needs-info` comment; leave their branch and worktree in place and move on.
 
-**Review does not gate integration.** Findings that are not fixed in place are carried on #NN and in the report, and the ticket still integrates — the work is done and the checks are green. Ordering the review before the merge buys a cleaner branch, not a veto.
+**Review does not gate integration.** Open findings are carried on #NN and in the report, and the ticket still integrates — the work is done and the checks are green. A fix agent that parks on a question changes nothing here either: it too integrates, carrying the question. Ordering the review before the merge buys a cleaner branch, not a veto. Only a red suite gates, and that is step 4's **Red** branch. The reasoning is in [ADR 0001](../../docs/adr/0001-review-does-not-gate-integration.md).
 
 A review that could not run at all leaves the ticket at *not run*, with the reason, and integrates too — it is never silently upgraded to reviewed, and never retried later in the run. This session is already the level that can fan out, so a failure here is the environment's answer, not a scheduling accident.
 
@@ -138,15 +159,13 @@ The run ends when the frontier is empty **and** the in-flight set is empty. Ever
 
 ### 6. Report
 
-Hand back the integration branch name, the tickets that landed, the tickets that landed carrying review findings, the tickets that landed unreviewed, and the parked batch as plain text:
+Hand back the integration branch name, the tickets that landed, the tickets that landed carrying review debt, and the parked batch as plain text:
 
 ```
 task/<slug> — 6 landed, 2 parked
 
-Landed with findings:
+Landed with open review items:
   #26 — review flagged the duplicated tier table; commented on #26, not fixed
-
-Landed unreviewed:
   #28 — /code-review not run: the skill's two-axis fan-out was unavailable in this session
 
 Parked:
@@ -154,7 +173,7 @@ Parked:
   #34 — Two tickets both claim the verification block; which owns it?
 ```
 
-The findings list names every ticket that integrated with review findings left unfixed, pointing at the comment that carries them; the unreviewed list names every ticket whose review could not run, with the reason. Omit either block entirely when it has no entries — an absent findings block means nothing landed unfixed and an absent unreviewed block means every landed ticket was reviewed, so neither can be read as silence. Whatever the run also writes — a pull request body above all — carries both lists, in the same words.
+One block, two kinds of entry: a ticket that integrated with findings left unfixed, pointing at the comment that carries them, and a ticket whose review could not run, with the reason. They are the same fact to a reader — this ticket merged with review debt — so they are not worth two lists. Omit the block entirely when it has no entries; an absent block means every landed ticket was reviewed and nothing was left open, so it can never be read as silence. Whatever the run also writes — a pull request body above all — carries the same list, in the same words.
 
 Print the questions here as text. Answering them is the user's next move, in their own time — swarm does not wait on them.
 
@@ -165,10 +184,10 @@ You are a filter, not a relay. One line per state transition, nothing else:
 ```
 #28 dispatched
 #31 dispatched
-#28 landed — task/swarm-skill green, review not run
+#28 landed — task/swarm-skill green, reviewed, 2 findings fixed
 #31 parked — needs-info
 ```
 
-A ticket's **landed** line comes after step 4 has reviewed and integrated it, not when the agent reports — the review outcome is part of the line, so the line cannot precede the review.
+A ticket's **landed** line comes after step 4 has reviewed and integrated it, not when the agent reports — the review outcome is part of the line, so the line cannot precede the review. Review, fix agent and merge are steps of your own loop, not states the user steers: they collapse into that one line rather than getting three of their own.
 
 Agent transcripts, diffs, file lists, and progress narration never reach the user. A failure gets one line and its shortest decisive error; the user asks if they want more.
