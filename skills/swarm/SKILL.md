@@ -108,13 +108,13 @@ Claim each ticket through the tracker's claim operation as it is dispatched.
 >
 > Effort: `<effort>`.
 
-Do not call `/implement` — its `disable-model-invocation: true` makes the Skill tool refuse a subagent's call, which is why the workflow is inlined above.
+Do not call `/implement` — its `disable-model-invocation: true` makes the Skill tool refuse a subagent's call, which is why the workflow is inlined above. Its review half is inlined too, but on the orchestrator's side: an agent dispatched here implements, and step 4 reviews.
 
 ### 4. Review, then integrate — one ticket at a time
 
 Never two merges in flight. For each agent that reports **landed**, in completion order:
 
-1. **Review it yourself, from this session, before it integrates.** Run `/code-review` on `issue/NN` against `task/<slug>`. You are the top-level session, so the two-axis fan-out a dispatched agent cannot launch works here, and reviewing before the merge means findings land in the ticket's own branch rather than on top of the integration branch. Act on the findings the way step 5 below acts on a red suite: fix in place on `issue/NN` if the fix is small and obviously yours, otherwise comment the findings on #NN and name the ticket in the final report.
+1. **Review it yourself, from this session, before it integrates.** Run `/code-review` on `issue/NN` against its merge-base with `task/<slug>` — the commit `issue/NN` was cut from, `git merge-base task/<slug> issue/NN`, not the branch tip. The branch has moved if an earlier ticket of this wave already landed, and reviewing against the tip would pull that ticket's diff into this one's review. You are the top-level session, so the two-axis fan-out a dispatched agent cannot launch works here, and reviewing before the merge means findings land in the ticket's own branch rather than on top of the integration branch. Act on the findings: fix them in place on `issue/NN` if the fix is small and obviously yours, otherwise comment them on #NN and carry the ticket in the final report.
 2. Rebase the ticket branch onto the integration branch, then fast-forward it in:
    `git rebase task/<slug> issue/NN && git merge --ff-only issue/NN`.
 3. On conflict, resolve it with `/resolving-merge-conflicts` — during the rebase, so the resolution lands in the ticket's own commits.
@@ -126,9 +126,9 @@ Rebase-and-fast-forward, never `--no-ff`. A merge commit per ticket makes the in
 
 Agents that report **parked** are already carrying a `needs-info` comment; leave their branch and worktree in place and move on.
 
-**Review does not gate integration.** Findings that are not fixed in place are carried on #NN and in the report, and the ticket still integrates — the work is done and the checks are green. The same holds when the review cannot run at all: a review the environment cannot produce must not stall the run. Ordering it before the merge buys a cleaner branch, not a veto.
+**Review does not gate integration.** Findings that are not fixed in place are carried on #NN and in the report, and the ticket still integrates — the work is done and the checks are green. Ordering the review before the merge buys a cleaner branch, not a veto.
 
-A review that could not run leaves the ticket at *not run*, with the reason, and it is never silently upgraded to reviewed. There is no second attempt later in the run — this session is already the level that can fan out, so a failure here is the environment's answer, not a scheduling accident.
+A review that could not run at all leaves the ticket at *not run*, with the reason, and integrates too — it is never silently upgraded to reviewed, and never retried later in the run. This session is already the level that can fan out, so a failure here is the environment's answer, not a scheduling accident.
 
 ### 5. Re-query and repeat
 
@@ -138,10 +138,13 @@ The run ends when the frontier is empty **and** the in-flight set is empty. Ever
 
 ### 6. Report
 
-Hand back the integration branch name, the tickets that landed, the tickets that landed unreviewed, and the parked batch as plain text:
+Hand back the integration branch name, the tickets that landed, the tickets that landed carrying review findings, the tickets that landed unreviewed, and the parked batch as plain text:
 
 ```
 task/<slug> — 6 landed, 2 parked
+
+Landed with findings:
+  #26 — review flagged the duplicated tier table; commented on #26, not fixed
 
 Landed unreviewed:
   #28 — /code-review not run: the skill's two-axis fan-out was unavailable in this session
@@ -151,7 +154,7 @@ Parked:
   #34 — Two tickets both claim the verification block; which owns it?
 ```
 
-The unreviewed list names every ticket whose review could not run, with the reason. Omit the block entirely when there are none — an absent block means every landed ticket was reviewed, so it can never be read as silence. Whatever the run also writes — a pull request body above all — carries the same list, in the same words.
+The findings list names every ticket that integrated with review findings left unfixed, pointing at the comment that carries them; the unreviewed list names every ticket whose review could not run, with the reason. Omit either block entirely when it has no entries — an absent findings block means nothing landed unfixed and an absent unreviewed block means every landed ticket was reviewed, so neither can be read as silence. Whatever the run also writes — a pull request body above all — carries both lists, in the same words.
 
 Print the questions here as text. Answering them is the user's next move, in their own time — swarm does not wait on them.
 
@@ -162,8 +165,10 @@ You are a filter, not a relay. One line per state transition, nothing else:
 ```
 #28 dispatched
 #31 dispatched
-#28 landed — task/swarm-skill green, reviewed clean
+#28 landed — task/swarm-skill green, review not run
 #31 parked — needs-info
 ```
+
+A ticket's **landed** line comes after step 4 has reviewed and integrated it, not when the agent reports — the review outcome is part of the line, so the line cannot precede the review.
 
 Agent transcripts, diffs, file lists, and progress narration never reach the user. A failure gets one line and its shortest decisive error; the user asks if they want more.
