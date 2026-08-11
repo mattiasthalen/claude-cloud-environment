@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.5.0
+SCRIPT_VERSION=1.6.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -22,6 +22,13 @@ PREFECT_VERSION=3.8.2
 # like every other pin here. The tag, the archive URL and the version the binary
 # reports are all built from this one value.
 KUBELOGIN_VERSION=0.2.19
+# newrelic is pinned without the leading `v` its release directory carries, for
+# the same reason kubelogin is: the directory URL, the archive name, the
+# checksums file and the version the binary reports are all built from this one
+# value. Upstream also publishes a `currentVersion.txt` that always names the
+# latest release; reading it would make a container rebuild move an environment
+# across a release, which is what this block exists to prevent.
+NEWRELIC_VERSION=0.113.4
 # acli: deliberately unpinned — upstream offers no pin, and asserting a version
 # would turn any upstream acli release into a session-blocking failure for every
 # environment that requested it.
@@ -99,7 +106,7 @@ report_failures() {
 # lose depending on argument order.
 # ---------------------------------------------------------------------------
 
-VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli kubelogin"
+VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli kubelogin newrelic"
 
 requested_tools=()
 unknown_tools=()
@@ -167,6 +174,7 @@ for tool in "$@"; do
     prefect)                want_uv prefect "prefect==${PREFECT_VERSION}" ;;
     acli)                   want_apt acli atlassian acli ;;
     kubelogin)              want_release kubelogin "${KUBELOGIN_VERSION}" ;;
+    newrelic)               want_release newrelic "${NEWRELIC_VERSION}" ;;
     *)                      unknown_tools+=("${tool}") ;;
   esac
 done
@@ -422,6 +430,57 @@ install_kubelogin() {
   install -m 0755 "${workdir}/unpacked/bin/linux_amd64/kubelogin" /usr/local/bin/kubelogin
 }
 
+# newrelic. The New Relic CLI, which upstream ships as a release archive and as
+# `.deb`/`.rpm` assets — assets, not repository packages, so the apt path this
+# script uses for a vendor repository does not apply. New Relic's apt repository
+# carries the infrastructure agent (`newrelic-infra`), a different tool this
+# script does not install.
+#
+# The archives are taken from New Relic's own download host rather than from the
+# GitHub release they are cut from. Both serve the same files, and this one is
+# the vendor's documented install source, so the download does not depend on
+# GitHub staying reachable for an environment that reaches New Relic anyway.
+# Alongside them the host publishes `currentVersion.txt`; the pin exists so that
+# file is not what decides which version an environment gets.
+#
+# The checksums arrive as one file covering every asset in the release rather
+# than as a per-archive sidecar, so the archive's line is selected out of it
+# before `sha256sum -c` reads it. Selecting on the whole second field rather
+# than by substring is what keeps the Linux amd64 `.tar.gz` line from being
+# confused with the `.deb` and `.rpm` lines that share its prefix. A pin that
+# does not exist upstream fails earlier still: neither URL resolves.
+#
+# The binary sits at the root of the tarball, so extraction names it directly
+# and nothing else in the archive — CHANGELOG.md, LICENSE, README.md — is
+# unpacked. `install` writes the destination in one move, which is what keeps a
+# failure from leaving a half-written newrelic on PATH.
+#
+# The tool is installed, not configured: no profile, API key, account or region.
+# Those are credentials, and credentials are the box's business rather than this
+# script's — see README.md.
+install_newrelic() {
+  local version=$1
+  local base="https://download.newrelic.com/install/newrelic-cli/v${version}"
+  local archive="newrelic-cli_${version}_Linux_x86_64.tar.gz"
+  local checksums="newrelic-cli_${version}_checksums.txt"
+  local workdir
+
+  workdir=$(mktemp -d) || return 1
+  # shellcheck disable=SC2064
+  trap "rm -rf '${workdir}'" RETURN
+
+  curl -fsSL "${base}/${archive}" -o "${workdir}/${archive}" || return 1
+  curl -fsSL "${base}/${checksums}" -o "${workdir}/${checksums}" || return 1
+  (
+    cd "${workdir}" &&
+      awk -v archive="${archive}" '$2 == archive' "${checksums}" | sha256sum -c -
+  ) || return 1
+
+  tar -xzf "${workdir}/${archive}" -C "${workdir}" newrelic || return 1
+
+  install -m 0755 "${workdir}/newrelic" /usr/local/bin/newrelic
+}
+
 if [ ${#release_tools[@]} -gt 0 ]; then
   for i in "${!release_tools[@]}"; do
     release_failures_before=${#FAILED_STEPS[@]}
@@ -430,6 +489,9 @@ if [ ${#release_tools[@]} -gt 0 ]; then
     case "${release_tools[i]}" in
       kubelogin)
         run_step "release install kubelogin v${release_pins[i]}" install_kubelogin "${release_pins[i]}"
+        ;;
+      newrelic)
+        run_step "release install newrelic v${release_pins[i]}" install_newrelic "${release_pins[i]}"
         ;;
       *)
         echo "environment.sh: no release installer for tool: ${release_tools[i]}" >&2
@@ -705,6 +767,12 @@ kubelogin_reported_version() {
   kubelogin --version | sed -n 's|^git hash: \([^/]*\).*|\1|p'
 }
 
+# newrelic prints one line, `newrelic version 0.113.4`, with no leading `v` — so
+# the pin is compared as it is written in the lockfile, unlike kubelogin's.
+newrelic_reported_version() {
+  newrelic version | sed -n 's/^newrelic version //p'
+}
+
 # Read-back of the file written above: it has to parse as JSON and carry the
 # keys a session depends on. `claude plugin list` is deliberately not consulted —
 # its output format is not a contract.
@@ -759,6 +827,7 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
     prefect)                verify_version prefect "${PREFECT_VERSION}" prefect --version ;;
     acli)                   verify_runs acli acli --version ;;
     kubelogin)              verify_version kubelogin "v${KUBELOGIN_VERSION}" kubelogin_reported_version ;;
+    newrelic)               verify_version newrelic "${NEWRELIC_VERSION}" newrelic_reported_version ;;
   esac
 done
 
