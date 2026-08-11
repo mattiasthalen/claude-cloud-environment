@@ -147,7 +147,9 @@ Rebase-and-fast-forward, never `--no-ff`. A merge commit per ticket makes the in
 
 Agents that report **parked** are already carrying a `needs-info` comment; leave their branch and worktree in place and move on.
 
-**Review does not gate integration.** Open findings are carried on #NN and in the report, and the ticket still integrates — the work is done and the checks are green. A fix agent that parks on a question changes nothing here either: it too integrates, carrying the question. Ordering the review before the merge buys a cleaner branch, not a veto. Only a red suite gates, and that is step 4's **Red** branch. The reasoning is in [ADR 0001](../../docs/adr/0001-review-does-not-gate-integration.md).
+**Review does not gate integration.** Open findings are carried on #NN and in the report, and the ticket still integrates — the work is done and the checks are green. A fix agent that parks on a question changes nothing here either: it too integrates, carrying the question. Ordering the review before the merge buys a cleaner branch, not a veto. Only a red suite gates, and that is the **Red** branch above.
+
+Gating was considered and rejected: the frontier is a dependency graph, so a ticket held back over a finding blocks every ticket that depends on it — and a review finding can be wrong, or can contradict the ticket's own acceptance criteria, while a red suite cannot. The report is what keeps this honest, which is why its open-items block is not optional.
 
 A review that could not run at all leaves the ticket at *not run*, with the reason, and integrates too — it is never silently upgraded to reviewed, and never retried later in the run. This session is already the level that can fan out, so a failure here is the environment's answer, not a scheduling accident.
 
