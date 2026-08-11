@@ -49,7 +49,8 @@ what that environment gets, and the box is the only place to change it.
 ## Prerequisites
 
 - The environment runs the **`Full` network access level**. The script fetches
-  from vendor apt repositories, PyPI and GitHub, and cannot check or influence
+  from vendor apt repositories, PyPI, GitHub and vendors' own download hosts,
+  and cannot check or influence
   an environment-level setting; on a restricted level the failure presents as an
   ordinary download failure.
 - Authentication is the box's business, not this script's. **No client names and
