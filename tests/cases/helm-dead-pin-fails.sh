@@ -8,9 +8,12 @@
 #
 # The dead pin is arranged by shadowing curl so the archive URL 404s, which is
 # what get.helm.sh answers for a version that was never published; the script
-# sees a download that failed with the pin in its step name either way.
-# Everything that is not that archive still goes to the harness curl, so the
-# skill fetch is unaffected and the recap carries one failure, not two.
+# sees a download that failed with the pin in its step name either way. The
+# checksum sidecar sits behind the same shadow, so a version that does not exist
+# upstream reaches the network for neither of its two URLs; the archive is
+# fetched first and returns, so the recap still carries one failure, not two.
+# Everything that is not those two URLs goes to the harness curl, so the skill
+# fetch is unaffected.
 #
 # Nothing installs here, so this case is cheap enough to gate a pull request.
 # tier: quick
@@ -24,7 +27,7 @@ cat > /usr/local/bin/curl <<'STUB'
 #!/bin/bash
 for arg in "$@"; do
   case "${arg}" in
-    *helm-v*-linux-amd64.tar.gz)
+    *helm-v*-linux-amd64.tar.gz*)
       echo "curl: (22) The requested URL returned error: 404" >&2
       exit 22
       ;;

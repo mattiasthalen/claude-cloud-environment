@@ -10,8 +10,8 @@ major would only mean carrying a migration later.
 
 ## Consequences
 
-A chart or plugin that a session brings with it has to be one Helm 4 accepts;
-Helm 4 changed what it will load, and this box offers no Helm 3 alongside it. An
+A chart or plugin that a session brings with it has to be one Helm 4 accepts,
+and this box offers no Helm 3 alongside it to fall back to. An
 environment that needs the older major is a lockfile change and a second pin,
 not a flag on the existing one — the same shape as any other version decision
 here.
