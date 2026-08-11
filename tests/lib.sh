@@ -130,6 +130,10 @@ harness_run() {
   if [ -f "${out}/CLAUDE.md" ]; then
     HARNESS_CLAUDE_MD=$(cat "${out}/CLAUDE.md")
   fi
+  HARNESS_CLAUDE_DOTFILES=""
+  if [ -f "${out}/claude-dotfiles" ]; then
+    HARNESS_CLAUDE_DOTFILES=$(cat "${out}/claude-dotfiles")
+  fi
   HARNESS_TOOLS=""
   if [ -f "${out}/tools" ]; then
     HARNESS_TOOLS=$(cat "${out}/tools")
@@ -259,6 +263,15 @@ assert_claude_md_contains() {
     harness_fail "expected the run to leave a non-empty ~/.claude/CLAUDE.md, found none"
   printf '%s\n' "${HARNESS_CLAUDE_MD}" | grep -qF -- "${needle}" ||
     harness_fail "expected ~/.claude/CLAUDE.md to contain '${needle}', got: ${HARNESS_CLAUDE_MD}"
+}
+
+# assert_claude_dotfile <name>
+# A dotfile the run left directly under ~/.claude, named exactly. For markers
+# whose existence is their whole content.
+assert_claude_dotfile() {
+  local name=$1
+  printf '%s\n' "${HARNESS_CLAUDE_DOTFILES}" | grep -qx -- "${name}" ||
+    harness_fail "expected ~/.claude/${name} after the run, found: ${HARNESS_CLAUDE_DOTFILES:-<none>}"
 }
 
 # assert_settings_jq <jq-filter> <expected-output>
