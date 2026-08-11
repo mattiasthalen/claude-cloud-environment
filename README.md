@@ -46,6 +46,21 @@ reported in the recap; it does not abort the rest of the setup.
 repo keeps no table of who requested what; reading a box is the only way to know
 what that environment gets, and the box is the only place to change it.
 
+## gcloud and the injected access token
+
+A hosted session is handed `CLOUDSDK_AUTH_ACCESS_TOKEN` in its environment,
+holding a token Google does not accept: with it set, every `gcloud` call fails
+with `ACCESS_TOKEN_TYPE_UNSUPPORTED` or reports no active account, whatever
+credentials the session itself has. An environment that requests `gcloud` gets
+that one variable unset for its shells — a snippet in `/etc/profile.d` for login
+shells, sourced from `/etc/bash.bashrc` for interactive non-login ones. A bare
+non-interactive `bash -c` reads neither and is not covered.
+
+Only the token is removed. The `CLOUDSDK_PROXY_*` and
+`CLOUDSDK_CORE_CUSTOM_CA_CERTS_FILE` variables injected alongside it are what
+route `gcloud` through the agent proxy and make it trust that proxy's CA, so
+they are left in place.
+
 ## Prerequisites
 
 - The environment runs the **`Full` network access level**. The script fetches

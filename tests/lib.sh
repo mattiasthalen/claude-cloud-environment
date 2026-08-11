@@ -22,6 +22,8 @@ HARNESS_CLAUDE_MD=""
 HARNESS_TOOLS=""
 HARNESS_SKILLS=""
 HARNESS_PACKAGES=""
+HARNESS_GCLOUD_TOKEN_SNIPPET=""
+HARNESS_BASH_BASHRC=""
 HARNESS_ARGS_DESC=""
 _harness_pre_file=""
 
@@ -142,6 +144,14 @@ harness_run() {
   if [ -f "${out}/packages" ]; then
     HARNESS_PACKAGES=$(cat "${out}/packages")
   fi
+  HARNESS_GCLOUD_TOKEN_SNIPPET=""
+  if [ -f "${out}/gcloud-token-snippet" ]; then
+    HARNESS_GCLOUD_TOKEN_SNIPPET=$(cat "${out}/gcloud-token-snippet")
+  fi
+  HARNESS_BASH_BASHRC=""
+  if [ -f "${out}/bash.bashrc" ]; then
+    HARNESS_BASH_BASHRC=$(cat "${out}/bash.bashrc")
+  fi
 }
 
 # harness_pkg_version <package>
@@ -259,6 +269,35 @@ assert_claude_md_contains() {
     harness_fail "expected the run to leave a non-empty ~/.claude/CLAUDE.md, found none"
   printf '%s\n' "${HARNESS_CLAUDE_MD}" | grep -qF -- "${needle}" ||
     harness_fail "expected ~/.claude/CLAUDE.md to contain '${needle}', got: ${HARNESS_CLAUDE_MD}"
+}
+
+# assert_gcloud_token_snippet_contains <substring>
+# A line of the /etc/profile.d snippet the gcloud arm writes. Fails if the run
+# wrote no snippet, so a skipped write is not a silent pass.
+assert_gcloud_token_snippet_contains() {
+  local needle=$1
+  [ -n "${HARNESS_GCLOUD_TOKEN_SNIPPET}" ] ||
+    harness_fail "expected the run to leave a non-empty gcloud token snippet in /etc/profile.d, found none"
+  printf '%s\n' "${HARNESS_GCLOUD_TOKEN_SNIPPET}" | grep -qF -- "${needle}" ||
+    harness_fail "expected the gcloud token snippet to contain '${needle}', got: ${HARNESS_GCLOUD_TOKEN_SNIPPET}"
+}
+
+# The negation, for a run whose selection never named gcloud.
+assert_gcloud_token_snippet_absent() {
+  [ -z "${HARNESS_GCLOUD_TOKEN_SNIPPET}" ] ||
+    harness_fail "expected no gcloud token snippet in /etc/profile.d, found: ${HARNESS_GCLOUD_TOKEN_SNIPPET}"
+}
+
+# assert_bash_bashrc_sources_snippet <expected-count>
+# How many times /etc/bash.bashrc sources the snippet. The count is the point:
+# once is coverage for interactive non-login shells, twice is a re-run appending
+# a second copy, and none is a run that left those shells uncovered.
+assert_bash_bashrc_sources_snippet() {
+  local expected=$1 actual
+  actual=$(printf '%s\n' "${HARNESS_BASH_BASHRC}" |
+    grep -cF -- '/etc/profile.d/gcloud-agent-proxy-token.sh')
+  [ "${actual}" = "${expected}" ] ||
+    harness_fail "expected /etc/bash.bashrc to source the gcloud token snippet ${expected} time(s), found ${actual}"
 }
 
 # assert_settings_jq <jq-filter> <expected-output>
