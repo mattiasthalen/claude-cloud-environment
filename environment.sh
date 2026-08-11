@@ -25,9 +25,8 @@ KUBELOGIN_VERSION=0.2.19
 # newrelic is pinned without the leading `v` its release directory carries, for
 # the same reason kubelogin is: the directory URL, the archive name, the
 # checksums file and the version the binary reports are all built from this one
-# value. Upstream also publishes a `currentVersion.txt` that always names the
-# latest release; reading it would make a container rebuild move an environment
-# across a release, which is what this block exists to prevent.
+# value. Upstream also publishes a `currentVersion.txt` naming the latest
+# release, which is exactly the floating source this block rules out.
 NEWRELIC_VERSION=0.113.4
 # acli: deliberately unpinned — upstream offers no pin, and asserting a version
 # would turn any upstream acli release into a session-blocking failure for every
@@ -152,7 +151,8 @@ want_uv() {
 
 # want_release <tool> <version>
 # A tool whose upstream ships neither an apt package nor a PyPI distribution,
-# only a release archive. release_tools stays parallel to release_pins for the
+# only a release archive — see the release-archive phase for where those are
+# fetched from. release_tools stays parallel to release_pins for the
 # same reason apt_tools and uv_tools do: a failed install has to be attributable
 # back to the tool it was carrying. The pin travels with the tool so the step
 # name can carry it, the way the apt and PyPI step names carry theirs.
@@ -375,9 +375,14 @@ fi
 # ---------------------------------------------------------------------------
 # Release-archive installs. The third and last install phase, for a tool whose
 # upstream publishes neither an apt package nor a Python distribution — only a
-# built archive on a GitHub release. It runs after the apt batch and the PyPI
-# phase for the same reason that one does: every phase installs what the whole
-# selection asked for, so the outcome does not depend on argument order.
+# built archive, on a GitHub release or on the vendor's own download host. It
+# runs after the apt batch and the PyPI phase for the same reason that one does:
+# every phase installs what the whole selection asked for, so the outcome does
+# not depend on argument order.
+#
+# Which host an installer fetches from is its own decision and belongs in its own
+# comment: what matters here is that the archive is a file to verify rather than
+# a package a repository maintains.
 #
 # There is no shared installer, only a shared shape: no two projects name their
 # archive, lay it out or checksum it the same way, so each tool gets its own

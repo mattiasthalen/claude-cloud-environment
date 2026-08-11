@@ -23,8 +23,8 @@ be a moving target and is not a release tag here.
 
 The argument list is the complete manifest of what gets installed. Valid names
 are the binary names: `gcloud`, `az`, `kubectl`, `snow`, `prefect`, `acli`,
-`kubelogin`, `newrelic`, and the add-on `gke-gcloud-auth-plugin` (which requires `gcloud` in
-the same list).
+`kubelogin`, `newrelic`, and the add-on `gke-gcloud-auth-plugin` (which requires
+`gcloud` in the same list).
 An unknown name fails before anything is installed. No arguments is a valid
 invocation and installs the plugins and settings only.
 
