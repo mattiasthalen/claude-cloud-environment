@@ -128,13 +128,17 @@ Never dispatch an agent to run `/code-review` for you. That agent would have no 
 >
 > Act on the findings you can, run `<check commands>`, and commit to `issue/NN` with a message referencing #NN. Leave the branch there — local, unmerged, unpushed.
 >
-> Report back in one paragraph: which findings you fixed, which you left and why, and whether the suite is green.
+> **Parking a finding:** where acting on one would mean guessing at an unsettled decision, stop, comment the question on #NN, label #NN `needs-info`, and report the finding as parked with the question text. Do not guess.
+>
+> Report back in one paragraph: which findings you fixed, which you left or parked and why, and whether the suite is green.
 >
 > Findings: `<the review's findings>`. Acceptance criteria: `<the ticket's criteria>`. Effort: `<effort>`.
 
-One pass, no second review — `/implement` reviews once and acts once, and so does this. A finding the fix agent leaves is carried on #NN and in the final report, the same as a finding nobody attempted. A fix agent that comes back red is not a findings problem: that is **Red** below.
+One pass, no second review — `/implement` reviews once and acts once, and so does this. A finding the fix agent leaves or parks is carried on #NN and in the final report, the same as a finding nobody attempted, and the ticket integrates regardless.
 
-**Integrate.** Never two merges in flight. For each reviewed ticket, in completion order:
+A fix agent that comes back **red** is the one case that stops the ticket. Nothing has been merged, so there is nothing to reset: the ticket simply does not integrate. Comment the failure on #NN, reopen nothing — the ticket was never closed — and leave the branch and worktree in place, exactly as for a parked agent. The integration branch never sees a red ticket, which is the same rule the **Red** case below enforces after a merge.
+
+**Integrate.** Never two merges in flight. For each ticket whose review is done and whose suite is green, in the order the reviews finished:
 
 1. Rebase the ticket branch onto the integration branch, then fast-forward it in:
    `git rebase task/<slug> issue/NN && git merge --ff-only issue/NN`.
@@ -184,9 +188,9 @@ Print the questions here as text. Answering them is the user's next move, in the
 You are a filter, not a relay. One line per state transition, nothing else:
 
 ```
-#28 dispatched
+#29 dispatched
 #31 dispatched
-#28 landed — task/swarm-skill green, reviewed, 2 findings fixed
+#29 landed — task/swarm-skill green, reviewed, 2 findings fixed
 #31 parked — needs-info
 ```
 
