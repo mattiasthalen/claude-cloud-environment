@@ -442,6 +442,64 @@ if [ ${#release_tools[@]} -gt 0 ]; then
   done
 fi
 
+# ---------------------------------------------------------------------------
+# gcloud: the access token the agent proxy injects.
+#
+# A hosted session is handed CLOUDSDK_AUTH_ACCESS_TOKEN in its environment,
+# carrying a token Google does not accept: with it set, every gcloud call fails
+# with ACCESS_TOKEN_TYPE_UNSUPPORTED or reports no active account, whatever
+# credentials the session itself has. gcloud reads the variable from the
+# environment on every invocation, so the fix has to take it out of the
+# environment — there is no config key that overrides it.
+#
+# Only the token goes. The four variables injected alongside it —
+# CLOUDSDK_PROXY_TYPE, CLOUDSDK_PROXY_ADDRESS, CLOUDSDK_PROXY_PORT and
+# CLOUDSDK_CORE_CUSTOM_CA_CERTS_FILE — are what route gcloud through the agent
+# proxy and make it trust the proxy's CA, so unsetting them would trade a broken
+# auth path for a broken network path.
+#
+# Where it is written is decided by who runs what: this script runs as root, and
+# the session runs as a user whose home this script cannot assume exists yet, so
+# root's own ~/.bashrc is the wrong file. A snippet under /etc/profile.d covers
+# login shells for every user; one guarded line in /etc/bash.bashrc sources the
+# same snippet for interactive non-login shells, which never read /etc/profile.
+# Between them they cover the shells a session's tooling actually starts. A bare
+# non-interactive `bash -c` reads neither and is deliberately not covered: only
+# BASH_ENV reaches that shell, and pointing it at a file for one variable's sake
+# would put this script in the path of every non-interactive shell in the box.
+#
+# Gated on gcloud being requested, like every other action here: an environment
+# that never asked for gcloud gets no profile write at all.
+# ---------------------------------------------------------------------------
+
+GCLOUD_TOKEN_SNIPPET=/etc/profile.d/gcloud-agent-proxy-token.sh
+SYSTEM_BASHRC=/etc/bash.bashrc
+
+write_gcloud_token_unset() {
+  cat > "${GCLOUD_TOKEN_SNIPPET}" << 'EOF' || return 1
+# Written by environment.sh.
+#
+# The agent proxy injects CLOUDSDK_AUTH_ACCESS_TOKEN with a token Google
+# rejects, which breaks every gcloud call in the session. Its sibling
+# CLOUDSDK_PROXY_* and CLOUDSDK_CORE_CUSTOM_CA_CERTS_FILE variables are what
+# make gcloud reach the network through that proxy and are left in place.
+unset CLOUDSDK_AUTH_ACCESS_TOKEN
+EOF
+  chmod 644 "${GCLOUD_TOKEN_SNIPPET}" || return 1
+
+  # The guard is what makes a re-run leave one source line rather than a second
+  # copy of it.
+  if [ -f "${SYSTEM_BASHRC}" ] && grep -qF "${GCLOUD_TOKEN_SNIPPET}" "${SYSTEM_BASHRC}"; then
+    return 0
+  fi
+
+  printf '\n. %s\n' "${GCLOUD_TOKEN_SNIPPET}" >> "${SYSTEM_BASHRC}"
+}
+
+if tool_requested gcloud; then
+  run_step "gcloud: unset the injected CLOUDSDK_AUTH_ACCESS_TOKEN" write_gcloud_token_unset
+fi
+
 mkdir -p ~/.claude
 
 # CLAUDE.md
@@ -705,6 +763,31 @@ kubelogin_reported_version() {
   kubelogin --version | sed -n 's|^git hash: \([^/]*\).*|\1|p'
 }
 
+# The token unset, checked the way a session meets it rather than by reading the
+# files back: a shell is started with the variable set to a value, and the row
+# says whether it survived. Both shells the write targets are checked, because
+# they read different files and a snippet that only landed in one of them is a
+# half fix. `unset` is what an unset variable prints through `${var-unset}`,
+# which a variable set to the empty string would not.
+gcloud_token_unset_in() {
+  CLOUDSDK_AUTH_ACCESS_TOKEN=injected-by-the-proxy \
+    bash "$1" -c 'echo "${CLOUDSDK_AUTH_ACCESS_TOKEN-unset}"' < /dev/null 2> /dev/null
+}
+
+verify_gcloud_token_unset() {
+  local login interactive
+  login=$(gcloud_token_unset_in -l)
+  interactive=$(gcloud_token_unset_in -i)
+
+  if [ "${login}" = unset ] && [ "${interactive}" = unset ]; then
+    echo "✓ gcloud CLOUDSDK_AUTH_ACCESS_TOKEN unset in login and interactive shells"
+    return 0
+  fi
+
+  echo "✗ gcloud CLOUDSDK_AUTH_ACCESS_TOKEN survives (login shell: ${login:-<no output>}, interactive shell: ${interactive:-<no output>})"
+  FAILED_STEPS+=("verify gcloud token unset")
+}
+
 # Read-back of the file written above: it has to parse as JSON and carry the
 # keys a session depends on. `claude plugin list` is deliberately not consulted —
 # its output format is not a contract.
@@ -751,7 +834,10 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
   fi
 
   case "${tool}" in
-    gcloud)                 verify_version gcloud "${GCLOUD_VERSION%%-*}" gcloud_reported_version ;;
+    gcloud)
+      verify_version gcloud "${GCLOUD_VERSION%%-*}" gcloud_reported_version
+      verify_gcloud_token_unset
+      ;;
     gke-gcloud-auth-plugin) verify_runs gke-gcloud-auth-plugin gke-gcloud-auth-plugin --version ;;
     az)                     verify_version az "${AZ_VERSION%%-*}" az_reported_version ;;
     kubectl)                verify_version kubectl "v${KUBECTL_VERSION%%-*}" kubectl_reported_version ;;

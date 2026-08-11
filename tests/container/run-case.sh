@@ -14,6 +14,8 @@
 #   /out/tools               the tools the run left on PATH
 #   /out/skills              the skills the run left installed
 #   /out/packages            the apt packages the container has
+#   /out/gcloud-token-snippet  the profile snippet the gcloud arm writes, if any
+#   /out/bash.bashrc         the system bashrc as the run left it
 #
 # Nothing here asserts. It only runs the script and collects what it left
 # behind, so assertions live in the case files on the host.
@@ -130,6 +132,17 @@ for skill in "${HOME}"/.claude/skills/*/SKILL.md; do
   name=$(basename "$(dirname "${skill}")")
   echo "${name} ${skill}" >> /out/skills
 done
+
+# The profile snippet the gcloud arm writes, and the system bashrc that is meant
+# to source it. The snippet is copied only when it exists — a run that never
+# asked for gcloud must leave neither, and absence is what such a case asserts.
+if [ -f /etc/profile.d/gcloud-agent-proxy-token.sh ]; then
+  cp /etc/profile.d/gcloud-agent-proxy-token.sh /out/gcloud-token-snippet
+fi
+
+if [ -f /etc/bash.bashrc ]; then
+  cp /etc/bash.bashrc /out/bash.bashrc
+fi
 
 # The apt version of every installed package, one `NAME VERSION` line each. The
 # binary on PATH does not say which repository it came from, and for kubectl
