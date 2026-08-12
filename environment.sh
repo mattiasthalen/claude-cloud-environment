@@ -744,14 +744,21 @@ fi
 #
 # The allow list is the mirror image of all of the above: two entries that make
 # an action possible rather than trimming it away. Under `defaultMode = "auto"`
-# any call matching no rule is put to a classifier, and the classifier declines
-# repo attachment for private repositories while allowing it for public ones —
-# the same call, same arguments, decided differently by target, and flipped to
-# allowed merely by the user having said "add the repo" in chat beforehand. So
-# it gates on conversational context, which an unattended session does not have:
-# a trigger-fired or scheduled run that needs a repository outside its source
-# list stalls there and waits for a human. Pre-approving is the only remedy that
-# is deterministic, and it grants no reach the workspace did not already have —
+# any call matching no rule is put to a classifier, and the classifier declined
+# `add_repo` twice in a session that had not been told to attach anything, then
+# allowed the identical call — same owner, same repo, same access — once the user
+# had said "add the repo" in chat. So it gates in part on conversational context,
+# which an unattended session does not have: a trigger-fired or scheduled run
+# that needs a repository outside its source list stalls there and waits for a
+# human. A separate observation, on a different target, is that an unprompted
+# `add_repo` against a *public* repo was allowed where the denied ones were
+# private; one call each is too thin to call that a rule, and it is recorded here
+# only as the reason not to expect the verdict to be stable. What both point at
+# is a per-call judgement, which no amount of reasoning about the rest of this
+# settings file predicts.
+#
+# Pre-approving is therefore the only remedy that is deterministic, and it grants
+# no reach the workspace did not already have —
 # `add_repo` runs its own entitlement check server-side and returns a structured
 # error for repositories this workspace is not authorised for, so the classifier
 # was a second gate standing over an existing one.
@@ -761,6 +768,12 @@ fi
 # and plugins do not load until `register_repo_root` reports the path. Granting
 # only the first moves the same wall one step later, to a place where it reads
 # as a cloned-but-inert repository rather than as a permission denial.
+#
+# Both names were checked against a live session's tool list and appear there
+# verbatim, which is the check `docs/adr/0002` asks of every entry added to this
+# block. An allow rule earns that check twice over: a deny rule naming no known
+# tool at least produces a startup warning, whereas an allow rule that matches
+# nothing is silent.
 #
 # The server segment of these names is `Claude_Code_Remote` because the tool
 # name is built as `mcp__<server>__<tool>` with the server's display name run
@@ -772,9 +785,9 @@ fi
 # if the backend ever registers the server under that name instead, these two
 # entries stop matching. They will not warn when that happens: an allow rule
 # that matches nothing loads and parses like any other. The symptom is the
-# classifier denial in issue #58 returning, and the fix is to re-derive these
-# names from a live session's tool list rather than to assume the spelling here
-# is still current.
+# classifier denial this block exists to prevent coming back, and the fix is to
+# re-derive these names from a live session's tool list rather than to assume the
+# spelling here is still current.
 write_settings() {
   local settings=~/.claude/settings.json
   local tmp
@@ -928,6 +941,7 @@ verify_settings() {
   if jq -e '
     .permissions.defaultMode == "auto"
     and (.permissions.allow | index("mcp__Claude_Code_Remote__add_repo") != null)
+    and (.permissions.allow | index("mcp__Claude_Code_Remote__register_repo_root") != null)
     and .enabledPlugins["mattpocock-skills@mattpocock"] == true
     and .enabledPlugins["caveman@caveman"] == true
   ' ~/.claude/settings.json > /dev/null 2>&1; then
