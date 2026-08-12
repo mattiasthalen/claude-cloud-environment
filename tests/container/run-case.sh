@@ -130,8 +130,13 @@ done
 
 # Which of the tools this script installs ended up on PATH, one `NAME PATH` line
 # each. Absence is a result too, so the file is written either way.
+#
+# The list is every selectable tool, and a tool missing from it makes
+# assert_tool_on_path unpassable for that tool rather than merely unasserted —
+# which is how newrelic and helm arrived with four cases that could not go green.
+# Adding a tool to environment.sh means adding it here.
 : > /out/tools
-for tool in gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli kubelogin git-lfs; do
+for tool in gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli kubelogin newrelic helm git-lfs; do
   if resolved=$(command -v "${tool}"); then
     echo "${tool} ${resolved}" >> /out/tools
   fi
