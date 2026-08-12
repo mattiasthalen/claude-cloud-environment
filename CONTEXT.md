@@ -30,14 +30,18 @@ One ticket's pull request, considered as its position in a stack.
 _Avoid_: step, level, node
 
 **Trunk**:
-The branch the bottom layer is based on — the repo's default branch. Swarm never merges to it and never pushes to it.
+The branch the bottom layer is based on — the repo's default branch.
 _Avoid_: base branch (ambiguous: every layer has a base), main, master
+
+**Integration branch**:
+Retired. The single branch a swarm run once rebased every ticket into, and the one pull request that carried the lot. A run ships a stack now; nothing plays this role.
+_Avoid_: `task/<slug>`, integration branch — both name a thing that no longer exists.
 
 **Chain mode**:
 A run where the stack API is unavailable, so layers are still based on each other but no stack object exists and the human merges bottom-up.
 
 **Ready**:
-A layer swarm has finished with — reviewed, rebased onto the layer below, green — and has flipped from draft. Not a claim that review found nothing.
+The state of a layer swarm has finished with: reviewed, rebased onto the layer below, green, and no longer a draft. Not a claim that review found nothing.
 _Avoid_: approved, done, complete
 
 ### Provisioning
@@ -52,4 +56,4 @@ A selectable tool that installs into a parent tool rather than standing alone, a
 The exact version a tool installs at, asserted after install so a silent version drift fails the run.
 
 **Tier**:
-Which runs a test case belongs to — `quick` gates pull requests, the whole suite runs on a schedule.
+The band a test case belongs to, deciding which runs execute it.
