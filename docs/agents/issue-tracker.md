@@ -21,6 +21,12 @@ where they cover the operation, or authenticated `curl` against
 `https://api.github.com` where they don't. The conventions above still describe
 *what* to do; only the transport changes.
 
+Two operations have no REST endpoint and need GraphQL at
+`https://api.github.com/graphql` with the same token: marking a draft pull
+request ready for review (`markPullRequestReadyForReview`) and converting one
+back to a draft (`convertPullRequestToDraft`). Both take the pull request's
+`node_id`.
+
 Ticket dependencies in particular have no CLI or MCP wrapper, so they are always
 wired through the REST API — see the Blocking bullet under Wayfinding
 operations below.
