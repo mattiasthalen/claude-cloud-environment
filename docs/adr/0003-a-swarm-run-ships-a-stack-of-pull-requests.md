@@ -8,7 +8,7 @@ A swarm run used to cut one integration branch, rebase every ticket into it, and
 
 **Chain the branches at dispatch time** — each agent cutting from the previous ticket's branch — was rejected because a wave's tickets are dispatched in parallel and their order is not known until their reviews finish. Chaining at dispatch means agents building on unfinished work. The chain is settled at stack time instead, which is the first moment the order exists. The branch an agent *is* cut from is the current top of the stack, so a later wave still inherits everything already stacked — the one job the integration branch did that was worth keeping.
 
-**Gate ready on a clean review** was rejected for the same reason `0001-review-does-not-gate-integration.md` rejected gating integration, plus a new one: a fix agent may legitimately refuse a finding that contradicts the ticket's acceptance criteria, and under a gate that layer would stay a draft with nobody left to unstick it.
+**Gate ready on a clean review** was rejected for the same reason `0001-review-does-not-gate-integration.md` rejected gating integration in the first place, plus a new one: a fix agent may legitimately refuse a finding that contradicts the ticket's acceptance criteria, and under a gate that layer would stay a draft with nobody left to unstick it.
 
 **Wait for general availability** was rejected. Stacked pull requests are in public preview, so the skill runs in *chain mode* where the stack API is unavailable: the layers are still cut and still based on each other, and only the stack object is missing. The small diffs are the value; the stack object is navigation.
 

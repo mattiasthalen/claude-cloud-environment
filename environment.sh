@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.7.0
+SCRIPT_VERSION=1.8.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -33,7 +33,7 @@ NEWRELIC_VERSION=0.113.4
 # version the binary reports are all built from this one value. Upstream also
 # serves a `helm-latest-version` pointer, which is the floating source this block
 # rules out. The major is a decision rather than a default — see
-# docs/adr/0001-helm-4-over-helm-3.md.
+# docs/adr/0002-helm-4-over-helm-3.md.
 HELM_VERSION=4.2.3
 # acli: deliberately unpinned — upstream offers no pin, and asserting a version
 # would turn any upstream acli release into a session-blocking failure for every
