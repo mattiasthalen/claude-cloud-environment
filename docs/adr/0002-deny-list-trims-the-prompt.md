@@ -2,6 +2,8 @@
 
 `environment.sh` writes a `permissions.deny` array into `~/.claude/settings.json`. Every entry is held to one criterion: make the system prompt smaller, minus whatever the session needs to keep supporting its user. Nothing in that array is there to make an action impossible, and reading it as a security boundary will mislead you.
 
+This decision governs the deny array only. The same block also writes a `permissions.allow` array, added later and answering to the opposite criterion — see `0004-the-allow-list-buys-determinism-not-reach.md`.
+
 Two facts about the mechanism decide most of the list, and neither is obvious from the settings documentation:
 
 - Denying a **built-in tool** keeps its schema out of the system prompt. This is where the saving comes from.

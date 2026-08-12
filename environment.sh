@@ -742,8 +742,9 @@ fi
 # style it switches comes from the plugin's session hook rather than from any
 # denied skill, so none of this turns the style off.
 #
-# The allow list is the mirror image of all of the above: two entries that make
-# an action possible rather than trimming it away. Under `defaultMode = "auto"`
+# The allow list is the mirror image of all of the above, and `docs/adr/0004`
+# carries the decision: two entries that buy a predictable verdict rather than
+# trimming anything out of the prompt. Under `defaultMode = "auto"`
 # any call matching no rule is put to a classifier, and the classifier declined
 # `add_repo` twice in a session that had not been told to attach anything, then
 # allowed the identical call — same owner, same repo, same access — once the user
