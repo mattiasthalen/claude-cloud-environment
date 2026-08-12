@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.8.0
+SCRIPT_VERSION=1.9.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -741,6 +741,40 @@ fi
 # `caveman` itself is left reachable: it is the level switcher, and the response
 # style it switches comes from the plugin's session hook rather than from any
 # denied skill, so none of this turns the style off.
+#
+# The allow list is the mirror image of all of the above: two entries that make
+# an action possible rather than trimming it away. Under `defaultMode = "auto"`
+# any call matching no rule is put to a classifier, and the classifier declines
+# repo attachment for private repositories while allowing it for public ones —
+# the same call, same arguments, decided differently by target, and flipped to
+# allowed merely by the user having said "add the repo" in chat beforehand. So
+# it gates on conversational context, which an unattended session does not have:
+# a trigger-fired or scheduled run that needs a repository outside its source
+# list stalls there and waits for a human. Pre-approving is the only remedy that
+# is deterministic, and it grants no reach the workspace did not already have —
+# `add_repo` runs its own entitlement check server-side and returns a structured
+# error for repositories this workspace is not authorised for, so the classifier
+# was a second gate standing over an existing one.
+#
+# `register_repo_root` is granted alongside it because attaching is two calls,
+# not one: `add_repo` returns a clone command, and the clone's CLAUDE.md, skills
+# and plugins do not load until `register_repo_root` reports the path. Granting
+# only the first moves the same wall one step later, to a place where it reads
+# as a cloned-but-inert repository rather than as a permission denial.
+#
+# The server segment of these names is `Claude_Code_Remote` because the tool
+# name is built as `mcp__<server>__<tool>` with the server's display name run
+# through a sanitiser that maps every character outside `[a-zA-Z0-9_-]` to `_`.
+# The backend registers this server as "Claude Code Remote", so the spaces
+# become underscores and the capitals survive. Rule matching compares the whole
+# string exactly, with no case folding anywhere, and the CLI carries the
+# lower-case hyphenated form `claude-code-remote` as an internal constant — so
+# if the backend ever registers the server under that name instead, these two
+# entries stop matching. They will not warn when that happens: an allow rule
+# that matches nothing loads and parses like any other. The symptom is the
+# classifier denial in issue #58 returning, and the fix is to re-derive these
+# names from a live session's tool list rather than to assume the spelling here
+# is still current.
 write_settings() {
   local settings=~/.claude/settings.json
   local tmp
@@ -750,6 +784,10 @@ write_settings() {
   tmp=$(mktemp)
   if jq '
     .permissions.defaultMode = "auto"
+    | .permissions.allow = [
+        "mcp__Claude_Code_Remote__add_repo",
+        "mcp__Claude_Code_Remote__register_repo_root"
+      ]
     | .permissions.deny = [
         "EnterPlanMode",
         "ExitPlanMode",
@@ -889,6 +927,7 @@ newrelic_reported_version() {
 verify_settings() {
   if jq -e '
     .permissions.defaultMode == "auto"
+    and (.permissions.allow | index("mcp__Claude_Code_Remote__add_repo") != null)
     and .enabledPlugins["mattpocock-skills@mattpocock"] == true
     and .enabledPlugins["caveman@caveman"] == true
   ' ~/.claude/settings.json > /dev/null 2>&1; then
