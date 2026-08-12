@@ -12,8 +12,8 @@ immutable tag and pipe it into `bash`, listing the tools that environment needs
 as positional arguments.
 
 ```
-# environment.sh v1.8.0
-curl -sL https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v1.8.0/environment.sh | bash -s -- gcloud kubectl gke-gcloud-auth-plugin snow
+# environment.sh v1.9.0
+curl -sL https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v1.9.0/environment.sh | bash -s -- gcloud kubectl gke-gcloud-auth-plugin snow
 ```
 
 The tag is what makes the box a decision: a change reaches an environment only

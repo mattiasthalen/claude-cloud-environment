@@ -20,11 +20,10 @@ assert_settings_jq '.permissions.defaultMode' 'auto'
 assert_settings_jq '.enabledPlugins["mattpocock-skills@mattpocock"]' 'true'
 assert_settings_jq '.enabledPlugins["caveman@caveman"]' 'true'
 
-# The allow list. Both entries are asserted with their exact spelling, capitals
-# included, because rule matching compares the whole string with no case folding
-# — a rule carrying the wrong case loads, parses and matches nothing, with no
-# warning. That silence is the whole reason these are pinned by literal here
-# rather than by a pattern or a count.
+# The allow list, pinned by exact literal rather than by pattern or count —
+# capitals included, because a wrong-cased rule matches nothing and says nothing.
+# See the comment above `write_settings` in environment.sh for why that silence
+# makes this the assertion to have.
 assert_settings_jq '.permissions.allow | index("mcp__Claude_Code_Remote__add_repo") != null' 'true'
 assert_settings_jq '.permissions.allow | index("mcp__Claude_Code_Remote__register_repo_root") != null' 'true'
 
