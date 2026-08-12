@@ -63,17 +63,26 @@ The frontier is only as good as your reading of the tracker, and a wrong reading
 4. Confirm the working tree is clean and note the trunk.
 5. Note the repo's own check commands — typecheck, test, lint, as its task runner and CI config define them. Every subagent, every review and every layer uses the same ones. A repo with no checks to run is fine; say so once and skip every green gate below.
 6. Read the repo's merge configuration (`GET /repos/{owner}/{repo}`) and hold `allow_squash_merge`, `allow_rebase_merge`, `allow_merge_commit` and `squash_merge_commit_message`. A repo that allows **only** squash merges, with the squash message set to the pull request's title and body, rewrites commit messages on merge and drops the `Closes #NN` that each ticket relies on. Where that holds, say so once in the report: those tickets need closing by hand.
-7. Establish whether the stack API is available: `GET /repos/{owner}/{repo}/stacks`. A `200` means stacks are live for this repo. Anything else means **chain mode** — layers are still cut and still based on each other, so the diffs stay small, but no stack object is created and the human merges bottom-up rather than in one operation. State which mode the run is in, once, at the first dispatch. Stacked pull requests are in public preview, require every branch to live in this repo, and are unavailable in GitHub Desktop.
+7. Establish whether the stack API is available: `GET /repos/{owner}/{repo}/stacks`. A `200` means stacks are live for this repo. Anything else means **chain mode** — layers are still cut and still based on each other, so the diffs stay small, but no stack object is created and the human merges bottom-up rather than in one operation. Hold which mode the run is in; the report states it once. Stacked pull requests are in public preview and require every branch to live in this repo.
 
 ## Process
 
 ### 1. Resolve the frontier
 
-The **frontier** is every open ticket in the ticket set whose blockers are, per the blocking semantics the tracker doc defines, either closed or already stacked by this run. Tickets close on merge now, not on stacking, so a run that waited for closure would stall after its first wave — hold the stacked set and count it as satisfying an edge. Three kinds of ticket are off the frontier: tickets claimed by someone else, tickets swarm has already dispatched and is still waiting on (**in flight**), and tickets parked on a question.
+The **frontier** is every open ticket in the ticket set whose blockers are all satisfied. Read the blocking edges the way the tracker doc defines them, then apply one rule the doc does not know about: a blocker this run has already stacked counts as satisfied, even though it is still open.
+
+That override is load-bearing, and swarm owns it rather than the tracker doc. The doc's own test is closure — its frontier query drops any ticket with an open blocker — and a ticket now closes when a human merges the stack, long after the run has ended. Without the override a run would stall after its first wave, every dependent still reading as blocked. So hold the **stacked set** explicitly, alongside the in-flight set, for the whole run.
+
+Three kinds of ticket are off the frontier: tickets claimed by someone else, tickets swarm has already dispatched and is still waiting on (**in flight**), and tickets parked on a question.
 
 Keep the in-flight set explicitly — in `background` mode agents outlive the wave that dispatched them, and a re-query that forgets them dispatches a second agent at a ticket that already has one.
 
-An empty frontier while nothing is in flight, with open tickets left in the set, means the graph is deadlocked on something outside swarm's reach. Comment on each of those tickets, naming the open blocker and saying the run ended without dispatching it, then report them and stop. A ticket that never ran carries no other trace: the blocking edge says it is blocked, and only the comment says its blocker died.
+An empty frontier while nothing is in flight, with open tickets left in the set, means the graph is deadlocked on something outside swarm's reach. Two comments close that out, and both are needed:
+
+- **On each undispatched ticket** — name the open blocker and say the run ended without dispatching it. A ticket that never ran carries no other trace: the blocking edge says it is blocked, and only the comment says its blocker died.
+- **On the blocker** — append the tickets it is holding up to the park or failure comment it already carries, rather than adding a second comment. Whoever answers that question is reading that comment, and the cost of leaving it unanswered belongs in it.
+
+Then report them and stop.
 
 ### 2. Dispatch
 
@@ -83,7 +92,7 @@ One agent per frontier ticket, all dispatched together. For each ticket `NN`, be
 git worktree add -b issue/NN ../.swarm/issue-NN <base>
 ```
 
-`<base>` is the head branch of the **topmost layer in the stack**, or the trunk while the stack is empty. That is how a later wave inherits every ticket already stacked, and it is why the chain is physical rather than bookkeeping. Agents in one wave share a base and are siblings; the chain between them is settled in step 4, when their order is known.
+`<base>` is the head branch of the **topmost layer in the stack**, or the trunk while the stack is empty. That is how a later wave inherits every ticket already stacked, and it is what makes the stack physical rather than bookkeeping. Agents in one wave share a base and are siblings; their order within the stack is settled in step 4, when it is first known.
 
 Each agent gets its own worktree and its own branch, so no two agents ever share a working tree. Pass the absolute worktree path in the prompt and require the agent to work only inside it. Set the agent's model from the invocation argument; state the effort level in the prompt.
 
@@ -103,11 +112,13 @@ Claim each ticket through the tracker's claim operation as it is dispatched.
 >
 > Commit to `issue/NN`. **At least one commit message must contain `Closes #NN`** — that keyword is what closes the ticket when the stack lands on the trunk, and it works from the commit whatever the layer's base branch is.
 >
-> Then push `issue/NN` and open a **draft** pull request against `<base>`, through the transport `docs/agents/issue-tracker.md` names. Title it from the ticket; write the body as what changed and why, and end it with `Closes #NN`. Leave it as a draft — the orchestrator reviews it, chains it, and marks it ready.
+> Then push `issue/NN` and open a **draft** pull request against `<base>`, through the transport `docs/agents/issue-tracker.md` names. Title it from the ticket; write the body as what changed and why, and end it with `Closes #NN`. Leave it as a draft — the orchestrator reviews it, stacks it, and marks it ready.
 >
 > **Parking a question:** if a decision is genuinely unsettled — one you'd have to guess at, where a wrong guess means rework — stop implementing, comment the question on #NN, label #NN `needs-info`, and report back that the ticket is parked with the question text. Do not guess.
 >
-> Report back in one paragraph: landed or parked, what changed, your pull request's number, and whether the suite is green. All four elements are required.
+> **A missing dependency is a fact, not a question.** If #NN turns out to need code from another ticket that is still open, record it: add the blocking edge on the tracker, per `docs/agents/issue-tracker.md`, then stop and report that you did. That is a different move from parking — it needs no human answer, and the orchestrator's next frontier query picks #NN up once the blocker lands.
+>
+> Report back in one paragraph: landed, parked, or blocked on a dependency you recorded; what changed; your pull request's number; and whether the suite is green. All four elements are required.
 >
 > Effort: `<effort>`.
 
@@ -119,7 +130,7 @@ Review comes first and reviews run together; stacking follows, strictly one at a
 
 **Review — run it inline, from this session.** For every agent that reports **landed**, run `/code-review` on `issue/NN` against `git merge-base <base> issue/NN` — the commit the branch was cut from, not the base's tip, which has moved if an earlier ticket of this wave has already stacked. Reviewing at the merge-base runs the moment the agent reports, without waiting on the wave's order, and once the branch is rebased in step 4 that diff and the pull request's own diff are the same commits.
 
-Run the whole reported batch's reviews together. They read distinct branches and write nothing, so nothing contends.
+Run every reported ticket's review together. They read distinct branches and write nothing, so nothing contends.
 
 Never dispatch an agent to run `/code-review` for you. That agent would have no `Agent` tool of its own, so the skill's two-axis fan-out would die exactly as it does inside an implementing agent. This session is the level the fan-out needs, which is the whole reason review lives here.
 
@@ -154,13 +165,15 @@ Never two at once. For each ticket whose review is done and whose suite is green
 
 Rebase and force-push, never a merge commit. A merge commit per ticket makes the layer un-rebasable, and a stack must have fully linear history between its branches or GitHub refuses to merge it until the stack is rebased.
 
-**Review does not gate ready.** Open findings are carried on #NN and in the report, and the layer is still marked ready — the work is done and the checks are green. A fix agent that parks on a question changes nothing here either: its layer stacks too, carrying the question. Draft-to-ready means *swarm is finished with this layer*, not *review approved it*; the approval is the human's, and giving them small layers to approve is the point. See `docs/adr/0001-review-does-not-gate-integration.md`. Only a red suite gates.
+**Review does not gate ready.** Open findings are carried on #NN and in the report, and the layer is still marked ready — the work is done and the checks are green. A fix agent that parks on a question changes nothing here either: its layer stacks too, carrying the question. Draft-to-ready means *swarm is finished with this layer*, not *review approved it*; the approval is the human's, and giving them small layers to approve is the point. Only a red suite gates.
 
 **Red, or parked.** A ticket whose fix agent comes back red, whose rebase leaves the suite red, or whose agent parked on a question does not join the stack. Its pull request stays a draft based on the trunk, carrying the failure or the question as a comment on #NN, and the next healthy ticket stacks onto the last good layer. Keep the branch and the worktree in place. This is deliberate: a stack can only be added to at the top and merges atomically downward, so an unready layer in the middle would freeze every layer above it, and one bad ticket would cost the run its whole merge.
 
 ### 5. Re-query and repeat
 
 After every layer, drop that ticket from the in-flight set, add it to the stacked set, and resolve the frontier again — a stacked blocker unblocks its dependents. Dispatch the new frontier and loop from step 2. A one-ticket wave is a normal wave.
+
+An agent that came back having recorded a blocking edge leaves the in-flight set too, and joins neither the stacked set nor the parked ones. Its ticket is simply blocked now, and the edge it wrote is what returns it to the frontier once its blocker stacks.
 
 The run ends when the frontier is empty **and** the in-flight set is empty. Every remaining open ticket is then either parked on a question or blocked by one that is.
 
@@ -200,6 +213,7 @@ You are a filter, not a relay. One line per state transition, nothing else:
 #31 dispatched
 #29 ready — layer 3, reviewed, 2 findings fixed
 #31 parked — needs-info, out of the stack
+#33 blocked — recorded an edge on #29, back to the frontier next wave
 ```
 
 A ticket's **ready** line comes after step 4 has reviewed, rebased and stacked it, not when the agent reports — the review outcome is part of the line, so the line cannot precede the review. Review, fix agent, rebase and stack are steps of your own loop, not states the user steers: they collapse into that one line rather than getting four of their own.
