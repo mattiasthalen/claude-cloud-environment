@@ -53,7 +53,17 @@ A CLI a caller can ask `environment.sh` to install, named as an argument to the 
 A selectable tool that installs into a parent tool rather than standing alone, and fails without it.
 
 **Pin**:
-The exact version a tool installs at, asserted after install so a silent version drift fails the run.
+The version a tool installs at, asserted after install so a silent version drift fails the run. Exact for every tool whose upstream lets it be — `git-lfs` pins a release series instead, because the Ubuntu archive supersedes the revision below it in place.
 
 **Tier**:
 The band a test case belongs to, deciding which runs execute it.
+
+### Git LFS
+
+**Pointer file**:
+The few-hundred-byte stand-in Git stores in place of an LFS-tracked file's real content. A clone with no LFS filters registered leaves these in the working tree, where anything reading one fails with an error naming neither LFS nor the cause.
+_Avoid_: stub, placeholder, LFS file
+
+**LFS filters**:
+The smudge/clean pair that swaps pointer files for real blobs on checkout and back again on commit. Registered system-wide in the snapshot, so a session's later clone brings down real blobs with no further step.
+_Avoid_: LFS hooks, LFS config
