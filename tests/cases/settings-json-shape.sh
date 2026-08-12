@@ -1,10 +1,11 @@
 #!/bin/bash
 # After a run, settings.json parses as JSON and carries the keys the session
 # depends on: the permission mode, both enabledPlugins entries, the built-in
-# tools denied to keep their schemas out of the system prompt, and the entries
-# that leave one review path rather than two — the denied cavecrew subagents and
-# caveman review skills. The plugin commands rewrite this file, so the shape it
-# ends up with is the contract, not the shape the script's jq filter asks for.
+# tools denied to keep their schemas out of the system prompt, the entries that
+# leave one review path rather than two — the denied cavecrew subagents and
+# caveman review skills — and the two allowed repo-attachment tools. The plugin
+# commands rewrite this file, so the shape it ends up with is the contract, not
+# the shape the script's jq filter asks for.
 #
 # The two groups of deny entries are not equivalent. Denying a built-in removes
 # its schema from the prompt; denying a skill does not hide it, and refuses it
@@ -18,6 +19,14 @@ harness_run
 assert_settings_jq '.permissions.defaultMode' 'auto'
 assert_settings_jq '.enabledPlugins["mattpocock-skills@mattpocock"]' 'true'
 assert_settings_jq '.enabledPlugins["caveman@caveman"]' 'true'
+
+# The allow list. Both entries are asserted with their exact spelling, capitals
+# included, because rule matching compares the whole string with no case folding
+# — a rule carrying the wrong case loads, parses and matches nothing, with no
+# warning. That silence is the whole reason these are pinned by literal here
+# rather than by a pattern or a count.
+assert_settings_jq '.permissions.allow | index("mcp__Claude_Code_Remote__add_repo") != null' 'true'
+assert_settings_jq '.permissions.allow | index("mcp__Claude_Code_Remote__register_repo_root") != null' 'true'
 
 # Denied by name rather than by count, so adding an unrelated deny entry does
 # not fail this case and dropping one of these does.
