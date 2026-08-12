@@ -22,6 +22,9 @@ HARNESS_CLAUDE_MD=""
 HARNESS_TOOLS=""
 HARNESS_SKILLS=""
 HARNESS_PACKAGES=""
+HARNESS_GITCONFIG_SYSTEM=""
+HARNESS_LFS_BLOB=""
+HARNESS_LFS_WORKTREE=""
 HARNESS_ARGS_DESC=""
 _harness_pre_file=""
 
@@ -146,6 +149,18 @@ harness_run() {
   if [ -f "${out}/packages" ]; then
     HARNESS_PACKAGES=$(cat "${out}/packages")
   fi
+  HARNESS_GITCONFIG_SYSTEM=""
+  if [ -f "${out}/gitconfig-system" ]; then
+    HARNESS_GITCONFIG_SYSTEM=$(cat "${out}/gitconfig-system")
+  fi
+  HARNESS_LFS_BLOB=""
+  if [ -f "${out}/lfs-blob" ]; then
+    HARNESS_LFS_BLOB=$(cat "${out}/lfs-blob")
+  fi
+  HARNESS_LFS_WORKTREE=""
+  if [ -f "${out}/lfs-worktree" ]; then
+    HARNESS_LFS_WORKTREE=$(cat "${out}/lfs-worktree")
+  fi
 }
 
 # harness_pkg_version <package>
@@ -252,6 +267,40 @@ assert_skill_absent() {
   printf '%s\n' "${HARNESS_SKILLS}" | grep -q "^${skill} " &&
     harness_fail "expected no '${skill}' skill after the run, found: ${HARNESS_SKILLS}"
   return 0
+}
+
+# assert_system_git_config <key>
+# A key with a non-empty value in the container's /etc/gitconfig after the run.
+# The system file is the assertion on purpose: this script runs as root and a
+# session runs as another user, so a setting that reached only root's own
+# ~/.gitconfig would pass a laxer check and still do nothing for a session.
+assert_system_git_config() {
+  local key=$1
+  printf '%s\n' "${HARNESS_GITCONFIG_SYSTEM}" | grep -q "^${key}=." ||
+    harness_fail "expected /etc/gitconfig to set '${key}' after the run, found: ${HARNESS_GITCONFIG_SYSTEM:-<none>}"
+}
+
+# assert_system_git_config_lacks <key>
+# The negation, for a run that was arranged to leave the filters unregistered.
+assert_system_git_config_lacks() {
+  local key=$1
+  printf '%s\n' "${HARNESS_GITCONFIG_SYSTEM}" | grep -q "^${key}=" &&
+    harness_fail "expected /etc/gitconfig not to set '${key}' after the run, found: ${HARNESS_GITCONFIG_SYSTEM}"
+  return 0
+}
+
+# assert_lfs_round_trip
+# The LFS filters did what they exist to do, asserted on the round trip the
+# container performed after the run (see tests/container/run-case.sh): the
+# committed blob is a pointer, so the clean filter ran, and the checked-out file
+# is the real payload, so the smudge filter ran. Asserting only the second half
+# would pass on a container with no filters at all, where git stores and returns
+# the same real bytes and nothing about LFS happened.
+assert_lfs_round_trip() {
+  printf '%s\n' "${HARNESS_LFS_BLOB}" | grep -q '^version https://git-lfs' ||
+    harness_fail "expected the committed blob to be an LFS pointer, got: ${HARNESS_LFS_BLOB:-<none>}"
+  [ "${HARNESS_LFS_WORKTREE}" = "real-bytes-not-a-pointer" ] ||
+    harness_fail "expected the checked-out file to carry the real bytes, got: ${HARNESS_LFS_WORKTREE:-<none>}"
 }
 
 # assert_claude_md_contains <substring>

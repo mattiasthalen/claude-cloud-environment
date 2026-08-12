@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.9.0
+SCRIPT_VERSION=1.10.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -35,6 +35,16 @@ NEWRELIC_VERSION=0.113.4
 # rules out. The major is a decision rather than a default — see
 # docs/adr/0002-helm-4-over-helm-3.md.
 HELM_VERSION=4.2.3
+# git-lfs is the one pin with a trailing `*`, and the exception is narrower than
+# it looks. It comes from the plain Ubuntu archive rather than a vendor
+# repository, so the part after the upstream version is a Debian revision
+# (`3.4.1-1ubuntu0.3`) that security updates supersede in place — an exact pin
+# would turn any archive refresh into a failed install. The release series, which
+# is what the exact-versions rule above exists to hold still, is still pinned:
+# `3.4.1*` cannot move to 3.4.2, and the binary reports `3.4.1` whatever the
+# revision, so the verification below still asserts a version rather than
+# settling for a liveness check.
+GIT_LFS_VERSION=3.4.1*
 # acli: deliberately unpinned — upstream offers no pin, and asserting a version
 # would turn any upstream acli release into a session-blocking failure for every
 # environment that requested it.
@@ -88,7 +98,7 @@ report_failures() {
 # the commands a session will actually type. The namespace is flat: an add-on is
 # just a tool name whose installer happens to be a package with a longer name.
 #
-# Adding a tool later is four steps, no more:
+# Adding a tool later is these four steps:
 #   1. one line in the lockfile block at the top of this file,
 #   2. one `case` arm below, appending to the accumulators, with the new name
 #      added to VALID_TOOLS,
@@ -101,6 +111,12 @@ report_failures() {
 #        function and one arm in the release install phase, because no two
 #        projects lay their archives out the same way.
 #
+# A tool that is not finished once its files are on disk adds a fifth step: its
+# own post-install step, after the install phases and guarded by the tool having
+# been requested. git-lfs is the only one today — a binary on PATH whose filters
+# are not registered still hands sessions pointer files — so this is one tool's
+# step rather than a hook the recipe generalises over.
+#
 # Arms append through `want_apt` / `want_uv` / `want_release` rather than
 # touching the arrays directly, so the presence guard is applied in one place
 # instead of once per tool.
@@ -112,7 +128,7 @@ report_failures() {
 # lose depending on argument order.
 # ---------------------------------------------------------------------------
 
-VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli kubelogin newrelic helm"
+VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli kubelogin newrelic helm git-lfs"
 
 requested_tools=()
 unknown_tools=()
@@ -183,6 +199,7 @@ for tool in "$@"; do
     kubelogin)              want_release kubelogin "${KUBELOGIN_VERSION}" ;;
     newrelic)               want_release newrelic "${NEWRELIC_VERSION}" ;;
     helm)                   want_release helm "${HELM_VERSION}" ;;
+    git-lfs)                want_apt git-lfs ubuntu "git-lfs=${GIT_LFS_VERSION}" ;;
     *)                      unknown_tools+=("${tool}") ;;
   esac
 done
@@ -334,6 +351,11 @@ if [ ${#apt_pkgs[@]} -gt 0 ]; then
       google) run_step "repository setup: google cloud" setup_repo_google ;;
       k8s) run_step "repository setup: kubernetes" setup_repo_k8s ;;
       microsoft) run_step "repository setup: microsoft" setup_repo_microsoft ;;
+      # The plain Ubuntu archive, already configured in the base image. Named
+      # explicitly and handled with a no-op rather than by letting a tool pass no
+      # vendor at all: an empty vendor would be indistinguishable from a vendor
+      # someone forgot to write, and the arm below is meant to catch that.
+      ubuntu) ;;
       atlassian) run_step "repository setup: atlassian" setup_repo_atlassian ;;
       *)
         echo "environment.sh: no repository setup for vendor: ${repo}" >&2
@@ -559,6 +581,35 @@ if [ ${#release_tools[@]} -gt 0 ]; then
       failed_tools+=("${release_tools[i]}")
     fi
   done
+fi
+
+# ---------------------------------------------------------------------------
+# Post-install configuration. A tool that is not finished once its files are on
+# disk gets a step here, after every install phase.
+#
+# git-lfs is the only one. The package alone changes nothing a session can see:
+# without the smudge/clean filters registered, an LFS-tracked file arrives as a
+# 134-byte pointer and whatever tries to run it fails with an error that names
+# neither LFS nor the cause. `--system` writes /etc/gitconfig, which is the only
+# form that works here — this script runs as root while the session works as a
+# different user, so a bare `git lfs install` would write root's ~/.gitconfig and
+# reach nobody. `--skip-repo` keeps the step to that one file: there is no
+# repository to configure at snapshot time, and there must not be a half-applied
+# one either.
+#
+# This is also why the script cannot do what the request originally proposed and
+# run `git lfs pull` per repository: the setup script runs once and its
+# filesystem is snapshotted for reuse, so it never sees a session's clone. It
+# does not need to. Clones happen after the snapshot is restored, with these
+# filters already in place, so the real blobs arrive during the clone itself.
+#
+# Guarded on the tool having been requested rather than on it having been
+# installed: the presence guard contributes nothing when the binary is already on
+# PATH, and a binary whose filters are unregistered is exactly the state this
+# step exists to fix. `git lfs install` is idempotent, so running it on a re-run
+# rewrites the same config and installs nothing.
+if tool_requested git-lfs && ! tool_install_failed git-lfs; then
+  run_step "git lfs install --system" git lfs install --system --skip-repo
 fi
 
 mkdir -p ~/.claude
@@ -935,6 +986,30 @@ newrelic_reported_version() {
   newrelic version | sed -n 's/^newrelic version //p'
 }
 
+# `git lfs version` prints `git-lfs/3.4.1 (GitHub; linux amd64; go 1.20.3)`. The
+# upstream version is what the pin names; the Debian revision the archive carries
+# never reaches this string, which is what makes a `3.4.1*` pin assertable.
+git_lfs_reported_version() {
+  git lfs version | sed -n 's|^git-lfs/\([^ ]*\).*|\1|p'
+}
+
+# verify_git_lfs
+# git-lfs is the one tool where a version on PATH is not the outcome worth
+# asserting. The filters are what turn a clone into real bytes rather than
+# pointer files, so they are checked first and a miss is reported as itself
+# rather than as a generic verification failure. Only once they are registered
+# does this fall through to the ordinary one-row version check, so the tool still
+# reports exactly one row like every other.
+verify_git_lfs() {
+  if [ -z "$(git config --system --get filter.lfs.smudge 2>/dev/null)" ]; then
+    echo "✗ git-lfs filters are not registered system-wide"
+    FAILED_STEPS+=("verify git-lfs")
+    return 0
+  fi
+
+  verify_version git-lfs "${GIT_LFS_VERSION%\*}" git_lfs_reported_version
+}
+
 # Read-back of the file written above: it has to parse as JSON and carry the
 # keys a session depends on. `claude plugin list` is deliberately not consulted —
 # its output format is not a contract.
@@ -997,6 +1072,7 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
     # no reader function of its own. `--short` would append the build commit,
     # which is what the other two release tools have to strip.
     helm)                   verify_version helm "v${HELM_VERSION}" helm version --template '{{.Version}}' ;;
+    git-lfs)                verify_git_lfs ;;
   esac
 done
 
