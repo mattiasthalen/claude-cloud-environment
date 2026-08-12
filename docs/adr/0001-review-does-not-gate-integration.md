@@ -2,7 +2,7 @@
 
 A swarm run reviews each ticket branch before that ticket's work is published, so it would be easy to assume an unclean review holds it back. It does not: a ticket whose review returned open findings, or whose review could not run at all, still ships, and the debt is carried on the ticket and in the run's report. Only a red check suite blocks it.
 
-*Amended when `0002-a-swarm-run-ships-a-stack-of-pull-requests.md` retired the integration branch.* The decision is unchanged; what it gates has moved. It used to mean "the ticket still merges into `task/<slug>`". It now means "the layer is still rebased onto the layer below, stacked, and marked ready".
+*Amended when `0003-a-swarm-run-ships-a-stack-of-pull-requests.md` retired the integration branch.* The decision is unchanged; what it gates has moved. It used to mean "the ticket still merges into `task/<slug>`". It now means "the layer is still rebased onto the layer below, stacked, and marked ready".
 
 ## Considered options
 
