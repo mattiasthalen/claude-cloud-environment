@@ -10,7 +10,8 @@
 # The two groups of deny entries are not equivalent. Denying a built-in removes
 # its schema from the prompt; denying a skill does not hide it, and refuses it
 # only at invocation. Both land in the same array, so this file asserts them the
-# same way, but see docs/adr/0002 before reading either group as a saving.
+# same way, but see docs/adr/0002-deny-list-trims-the-prompt.md before reading
+# either group as a saving.
 # tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
