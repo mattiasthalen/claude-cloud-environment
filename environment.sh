@@ -33,7 +33,7 @@ NEWRELIC_VERSION=0.113.4
 # version the binary reports are all built from this one value. Upstream also
 # serves a `helm-latest-version` pointer, which is the floating source this block
 # rules out. The major is a decision rather than a default — see
-# docs/adr/0002-helm-4-over-helm-3.md.
+# docs/adr/0005-helm-4-over-helm-3.md.
 HELM_VERSION=4.2.3
 # git-lfs is the one pin with a trailing `*`, and the exception is narrower than
 # it looks. It comes from the plain Ubuntu archive rather than a vendor
@@ -822,10 +822,10 @@ fi
 # as a cloned-but-inert repository rather than as a permission denial.
 #
 # Both names were checked against a live session's tool list and appear there
-# verbatim, which is the check `docs/adr/0002` asks of every entry added to this
-# block. An allow rule earns that check twice over: a deny rule naming no known
-# tool at least produces a startup warning, whereas an allow rule that matches
-# nothing is silent.
+# verbatim, which is the check `docs/adr/0002-deny-list-trims-the-prompt.md` asks
+# of every entry added to this block. An allow rule earns that check twice over:
+# a deny rule naming no known tool at least produces a startup warning, whereas
+# an allow rule that matches nothing is silent.
 #
 # The server segment of these names is `Claude_Code_Remote` because the tool
 # name is built as `mcp__<server>__<tool>` with the server's display name run

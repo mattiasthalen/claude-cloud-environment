@@ -49,6 +49,14 @@ _Avoid_: approved, done, complete
 **Selectable tool**:
 A CLI a caller can ask `environment.sh` to install, named as an argument to the script.
 
+**Requested tool**:
+A selectable tool an environment actually named on its setup line. Nothing the script installs or configures happens except in response to one.
+_Avoid_: enabled tool, chosen tool
+
+**Presence guard**:
+The check that skips work for a tool already on `PATH`. It is what makes a second run over the same container a no-op, and it deliberately ignores the installed version rather than self-healing a wrong one.
+_Avoid_: idempotency check, install guard
+
 **Addon**:
 A selectable tool that installs into a parent tool rather than standing alone, and fails without it.
 
@@ -67,3 +75,17 @@ _Avoid_: stub, placeholder, LFS file
 **LFS filters**:
 The smudge/clean pair that swaps pointer files for real blobs on checkout and back again on commit. Registered system-wide in the snapshot, so a session's later clone brings down real blobs with no further step.
 _Avoid_: LFS hooks, LFS config
+
+### Hosted sessions
+
+**Agent proxy**:
+The outbound HTTPS proxy every hosted session's traffic passes through, and the source of part of the environment that session is handed.
+_Avoid_: egress proxy, network proxy
+
+**Injected variable**:
+An environment variable the agent proxy places in every session, whether or not anything in that session can use it.
+_Avoid_: provided variable, ambient variable
+
+**Session shell**:
+A shell a session's own tooling starts, as opposed to one `environment.sh` starts. Login and interactive non-login session shells read different startup files, so anything written for them has to name both.
+_Avoid_: user shell, terminal
