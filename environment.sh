@@ -685,21 +685,58 @@ fi
 # when off, because `claude plugin disable` writes `false` rather than removing
 # the key — an absent key and a `false` key are not the same state.
 #
-# The caveman plugin is enabled for its response style alone. Its review path —
-# the three `cavecrew-*` subagents, the `cavecrew` skill that routes work to
-# them, and `caveman-review` — is a second, tempting reviewer sitting next to
-# `/code-review`, and a session told to review will take whichever is nearer.
-# Denying both leaves one review path rather than two, which is the enforced
-# half of what `~/.claude/CLAUDE.md` only asks for. The plugin's other skills go
-# with them for a plainer reason: an environment provisioned by this script
-# wants the response style and nothing else from the plugin, and every listed
-# skill costs context in every session.
+# The deny list has two halves, kept apart because they are earning different
+# things. See docs/adr/0002-deny-list-trims-the-prompt.md for the criterion both
+# are held to: a smaller system prompt, minus whatever the session needs to keep
+# supporting its user.
+#
+# First half — built-in tools this environment does not use. Denying a built-in
+# keeps its schema out of the system prompt entirely, which is the whole point:
+# the plan-mode pair blocks on a human approval an unattended web session will
+# never get, `NotebookEdit` has no notebooks to edit in this repo, and
+# `PushNotification` / `RemoteTrigger` / `ReportFindings` have no role in any
+# flow this box runs.
+#
+# The Cron trio and `ScheduleWakeup` are denied on prompt size alone and NOT as
+# a capability boundary — the Claude Code Remote MCP server exposes the same
+# capabilities under `create_trigger`, `list_triggers`, `delete_trigger` and
+# `send_later`, none of which are denied, and a tool name containing `_` is
+# exempt even from the typo check these rules get at startup. That is
+# deliberate: a remote session is told by its own harness to schedule PR
+# check-ins, so blocking scheduling outright would break the flow this
+# environment exists to run. Read these four as "out of the prompt", never as
+# "cannot happen".
+#
+# `AskUserQuestion` and `SendMessage` are deliberately NOT denied, having been
+# tried here and reverted. Under `permissions.defaultMode = "auto"`,
+# `AskUserQuestion` is the session's only way to reach its user at all, and the
+# remote harness names it as the path for an ambiguous review comment. Denying
+# it removed the ability to ask without removing the situations that warrant
+# asking. `SendMessage` resumes an existing subagent; without it a session can
+# spawn agents but never continue one, so every follow-up question pays full
+# context re-discovery — more prompt than the schema ever cost.
+#
+# Second half — the caveman plugin, enabled for its response style alone. Its
+# review path (the three `cavecrew-*` subagents, the `cavecrew` skill that
+# routes work to them, and `caveman-review`) is a second, tempting reviewer
+# sitting next to `/code-review`, and a session told to review will take
+# whichever is nearer. Denying both leaves one review path rather than two,
+# which is the enforced half of what `~/.claude/CLAUDE.md` only asks for. The
+# plugin's other skills go with them because an environment provisioned by this
+# script wants the response style and nothing else from the plugin.
+#
+# Note the asymmetry with the first half: denying a skill does NOT shrink the
+# prompt. A denied skill still appears in the session's skill listing, with its
+# description, and is refused only when invoked. So these seven entries buy the
+# single-review-path guarantee and nothing else — do not read them as a saving.
 #
 # Skills are denied rather than hidden with `skillOverrides`, which cannot
 # express this: the override resolver returns "on" for any plugin-sourced skill
 # before it reads settings at all, so an entry there would be inert whatever it
 # said. Deny rules are checked at invocation instead, which is why the skill
-# names carry the `caveman:` prefix the Skill tool takes.
+# names carry the `caveman:` prefix the Skill tool takes. That prefixed form is
+# undocumented but does match — verified by invoking a denied skill and getting
+# "Skill execution blocked by permission rules".
 #
 # `caveman` itself is left reachable: it is the level switcher, and the response
 # style it switches comes from the plugin's session hook rather than from any
@@ -716,14 +753,11 @@ write_settings() {
     | .permissions.deny = [
         "EnterPlanMode",
         "ExitPlanMode",
-        "DesignSync",
         "NotebookEdit",
-        "SendMessage",
         "PushNotification",
         "RemoteTrigger",
         "ReportFindings",
         "ScheduleWakeup",
-        "AskUserQuestion",
         "CronCreate",
         "CronDelete",
         "CronList",
