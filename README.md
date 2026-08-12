@@ -12,8 +12,8 @@ immutable tag and pipe it into `bash`, listing the tools that environment needs
 as positional arguments.
 
 ```
-# environment.sh v1.9.0
-curl -sL https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v1.9.0/environment.sh | bash -s -- gcloud kubectl gke-gcloud-auth-plugin snow
+# environment.sh v1.10.0
+curl -sL https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v1.10.0/environment.sh | bash -s -- gcloud kubectl gke-gcloud-auth-plugin snow
 ```
 
 The tag is what makes the box a decision: a change reaches an environment only
@@ -23,10 +23,17 @@ be a moving target and is not a release tag here.
 
 The argument list is the complete manifest of what gets installed. Valid names
 are the binary names: `gcloud`, `az`, `kubectl`, `snow`, `prefect`, `acli`,
-`kubelogin`, `newrelic`, `helm`, and the add-on `gke-gcloud-auth-plugin` (which
-requires `gcloud` in the same list).
+`kubelogin`, `newrelic`, `helm`, `git-lfs`, and the add-on
+`gke-gcloud-auth-plugin` (which requires `gcloud` in the same list).
 An unknown name fails before anything is installed. No arguments is a valid
 invocation and installs the plugins and settings only.
+
+`git-lfs` is worth naming for an environment whose repositories keep binaries in
+Git LFS. Without it a session's clone brings those files down as pointer files a
+few hundred bytes long, and whatever tries to read one fails with an error that
+mentions neither LFS nor the cause. Requesting it registers the LFS filters
+system-wide in the snapshot, so clones — which happen after the snapshot is
+restored — bring down the real blobs with no further step.
 
 ## Skills
 

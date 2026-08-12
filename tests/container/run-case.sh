@@ -16,6 +16,9 @@
 #   /out/tools               the tools the run left on PATH
 #   /out/skills              the skills the run left installed
 #   /out/packages            the apt packages the container has
+#   /out/gitconfig-system    /etc/gitconfig as the run left it
+#   /out/lfs-blob            the committed form of an LFS-tracked file
+#   /out/lfs-worktree        the checked-out form of that same file
 #
 # Nothing here asserts. It only runs the script and collects what it left
 # behind, so assertions live in the case files on the host.
@@ -128,7 +131,7 @@ done
 # Which of the tools this script installs ended up on PATH, one `NAME PATH` line
 # each. Absence is a result too, so the file is written either way.
 : > /out/tools
-for tool in gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli kubelogin; do
+for tool in gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli kubelogin git-lfs; do
   if resolved=$(command -v "${tool}"); then
     echo "${tool} ${resolved}" >> /out/tools
   fi
@@ -148,6 +151,45 @@ done
 # that is the whole question: the Google Cloud repository publishes an
 # epoch-versioned `kubectl` that is a different package at the same command.
 dpkg-query -W -f '${Package} ${Version}\n' > /out/packages 2> /dev/null
+
+# The system git config, which is where `git lfs install --system` registers the
+# smudge/clean filters. It is read from /etc/gitconfig rather than from root's
+# ~/.gitconfig deliberately: a session works as a different user, so a
+# registration that landed in root's home would be invisible to it, and a case
+# asserting on the system file is what catches that.
+git config --system --list > /out/gitconfig-system 2> /dev/null ||
+  : > /out/gitconfig-system
+
+# An LFS round trip, so a case can assert on what the filters *do* rather than
+# only on the config lines that claim they are installed. Committing writes a
+# pointer through the clean filter; deleting the file and checking it back out
+# restores the real bytes through the smudge filter, from this repo's own LFS
+# store and with no server involved.
+#
+# Both halves are collected because either one alone passes for the wrong
+# reason: with no filters registered git stores the real bytes verbatim, so the
+# checked-out file looks right while nothing about LFS worked. Only a pointer in
+# the commit and real bytes in the worktree means both filters ran.
+: > /out/lfs-blob
+: > /out/lfs-worktree
+if command -v git-lfs > /dev/null 2>&1; then
+  (
+    set -e
+    work=$(mktemp -d)
+    cd "${work}"
+    git init -q .
+    git config user.email harness@example.invalid
+    git config user.name harness
+    git lfs track '*.bin' > /dev/null
+    printf 'real-bytes-not-a-pointer' > payload.bin
+    git add .gitattributes payload.bin
+    git commit -qm payload
+    git cat-file -p HEAD:payload.bin > /out/lfs-blob
+    rm payload.bin
+    git checkout -q -- payload.bin
+    cp payload.bin /out/lfs-worktree
+  ) > /dev/null 2>&1 || true
+fi
 
 # Everything above ran as root, and `cp` carries the source's mode across — so
 # a file the script wrote for its own eyes only, as settings.json is, lands in
