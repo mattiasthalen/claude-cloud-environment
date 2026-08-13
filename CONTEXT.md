@@ -86,6 +86,10 @@ _Avoid_: egress proxy, network proxy
 An environment variable the agent proxy places in every session, whether or not anything in that session can use it.
 _Avoid_: provided variable, ambient variable
 
+**Blocking ask**:
+A question a session puts to its user in prose at the end of a turn, halting the run until it is answered. Distinct from **Parked**: a parked ticket carries its question durably as a comment and the run continues elsewhere, whereas a blocking ask exists only in a transcript nobody may be watching.
+_Avoid_: prompt, interrupt, user question
+
 **Session shell**:
 A shell a session's own tooling starts, as opposed to one `environment.sh` starts. Login and interactive non-login session shells read different startup files, so anything written for them has to name both.
 _Avoid_: user shell, terminal

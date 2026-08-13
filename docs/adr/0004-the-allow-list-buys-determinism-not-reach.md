@@ -16,7 +16,7 @@ An allow rule is the only remedy that removes the variance rather than improving
 
 **A server-level rule** — a bare `mcp__Claude_Code_Remote` entry, which the matcher does accept as a wildcard over every tool the server exposes — was rejected as far past the need. It would also grant `create_session`, `create_trigger` and `send_message`.
 
-**Re-enabling `AskUserQuestion` instead**, which the originating issue suggested as an alternative, was moot by the time this was written: it had already left the deny list for its own reasons, recorded in `0002`. It would not have fixed this in any case. A prompt in an unattended session stalls exactly as a written explanation does, and unattended stalls are the whole cost being paid.
+**Re-enabling `AskUserQuestion` instead**, which the originating issue suggested as an alternative, was moot by the time this was written: it had already left the deny list for its own reasons, recorded in `0002`. It would not have fixed this in any case. A prompt in an unattended session stalls exactly as a written explanation does, and unattended stalls are the whole cost being paid. That last point is why `0007` returning the tool to the deny list changes nothing here — the allow entries never depended on it either way.
 
 ## Consequences
 

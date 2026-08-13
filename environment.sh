@@ -621,9 +621,16 @@ mkdir -p ~/.claude
 # the skill's fan-out as something to route around rather than run. A memory
 # file does not outrank a system prompt, so this raises the odds and gives the
 # session something to cite; it does not settle the matter.
+#
+# The blocking-ask line is the other half of denying `AskUserQuestion` in the
+# settings write below, and neither half works alone: the deny removes the tool,
+# this bullet keeps the asking. It carries the same caveat as the line above —
+# it raises the odds that an unsettled decision comes back as a question rather
+# than as a guess, and settles nothing.
 cat > ~/.claude/CLAUDE.md << 'EOF'
 - Always respond in caveman `full` mode per the caveman plugin ruleset.
 - `/code-review` spawns one subagent per axis (Standards, Spec) by design — that is expected, not something to work around. Run the skill rather than skipping it, even under a standing instruction against subagents; if that instruction is absolute, say the review was skipped instead of reporting the work reviewed.
+- When a decision is genuinely unsettled and guessing would waste the run, end the turn with the question in prose — number the options and mark your recommendation — rather than proceeding. The absence of a question tool is not licence to guess.
 EOF
 
 # Plugins.
@@ -758,14 +765,22 @@ fi
 # environment exists to run. Read these four as "out of the prompt", never as
 # "cannot happen".
 #
-# `AskUserQuestion` and `SendMessage` are deliberately NOT denied, having been
-# tried here and reverted. Under `permissions.defaultMode = "auto"`,
-# `AskUserQuestion` is the session's only way to reach its user at all, and the
-# remote harness names it as the path for an ambiguous review comment. Denying
-# it removed the ability to ask without removing the situations that warrant
-# asking. `SendMessage` resumes an existing subagent; without it a session can
-# spawn agents but never continue one, so every follow-up question pays full
-# context re-discovery — more prompt than the schema ever cost.
+# `AskUserQuestion` is denied on neither of the grounds above: not prompt size,
+# not capability, but the question box it renders, which the user of these
+# environments will not work in. This entry has now flipped twice, so the
+# reasoning lives in docs/adr/0007-the-question-box-goes-prose-replaces-it.md
+# rather than here.
+#
+# What matters at this line is that the deny does NOT stand alone. The
+# ~/.claude/CLAUDE.md heredoc above carries the bullet that routes the same
+# questions into prose at the end of a turn, and removing the tool without that
+# bullet recreates the silent-guessing failure this entry was reverted for the
+# first time round. The two ship together or not at all.
+#
+# `SendMessage` is deliberately NOT denied, having been tried here and reverted.
+# It resumes an existing subagent; without it a session can spawn agents but
+# never continue one, so every follow-up question pays full context
+# re-discovery — more prompt than the schema ever cost.
 #
 # Second half — the caveman plugin, enabled for its response style alone. Its
 # review path (the three `cavecrew-*` subagents, the `cavecrew` skill that
@@ -854,6 +869,7 @@ write_settings() {
         "mcp__Claude_Code_Remote__register_repo_root"
       ]
     | .permissions.deny = [
+        "AskUserQuestion",
         "EnterPlanMode",
         "ExitPlanMode",
         "NotebookEdit",
