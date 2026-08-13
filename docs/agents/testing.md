@@ -4,7 +4,10 @@
 
 The container suite **does now run in a Claude Code on the web session**. This
 section previously said it could not, on two grounds; the first is automated
-away and the second no longer holds.
+away and the second no longer holds. That reverses issue #48, which closed by
+forbidding exactly this automation — see
+`docs/adr/0008-the-test-harness-starts-its-own-daemon.md` for why the reversal
+is sound rather than an oversight.
 
 1. `/usr/bin/dockerd` is installed but nothing starts it — PID 1 is the
    session's own supervisor, not an init system. `tests/run.sh` now starts the
@@ -66,8 +69,14 @@ failure), `1` when a case fails, `0` when all pass.
 The first run builds `claude-cloud-environment-tests:base` from
 `tests/base.Dockerfile` — Ubuntu 24.04 as root, pinned to `linux/amd64` because
 every pin and install method in `environment.sh` assumes that base, and carrying
-only what the hosted base image already provides before the script runs: a CA
-store, `curl`, `git`, `jq`, `uv` and the Claude Code CLI. `uv` is load-bearing
+close to what the hosted base image already provides before the script runs: a
+CA store, `curl`, `git`, `jq`, `uv` and the Claude Code CLI. It carries one
+thing the hosted image does not — a Node runtime, because the CLI is installed
+from npm rather than by `https://claude.ai/install.sh`, whose fetch of the
+native binary is cut off partway behind a TLS-intercepting proxy. What a case
+needs is a `claude` on PATH, and which packaging put it there is not something
+`environment.sh` can observe; nothing in this repo installs or asserts Node, so
+no case can mistake it for provisioning. `uv` is load-bearing
 for two of `environment.sh`'s three install phases — the PyPI one runs through
 it, and the release-archive one borrows it to unpack a zip — so a case that
 exercises either is relying on the base image carrying it. Later runs reuse the image —
