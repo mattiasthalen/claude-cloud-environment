@@ -76,7 +76,9 @@ from npm rather than by `https://claude.ai/install.sh`, whose fetch of the
 native binary is cut off partway behind a TLS-intercepting proxy. What a case
 needs is a `claude` on PATH, and which packaging put it there is not something
 `environment.sh` can observe; nothing in this repo installs or asserts Node, so
-no case can mistake it for provisioning. `uv` is load-bearing
+no case can mistake it for provisioning. The CLI is pinned, and the pin is
+asserted after install like every pin in `environment.sh`; bump it at the
+`CLAUDE_CODE_VERSION` argument in `tests/base.Dockerfile`. `uv` is load-bearing
 for two of `environment.sh`'s three install phases — the PyPI one runs through
 it, and the release-archive one borrows it to unpack a zip — so a case that
 exercises either is relying on the base image carrying it. Later runs reuse the image —

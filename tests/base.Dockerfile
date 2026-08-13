@@ -29,11 +29,18 @@ ENV PATH=/root/.local/bin:$PATH
 # it there is not something environment.sh can observe. The Node runtime this
 # adds is the cost, and it is not in the hosted base image — nothing in this
 # repo installs or asserts Node, so no case can mistake it for provisioning.
+# The pin is asserted after install rather than trusted, the same way
+# environment.sh asserts every version it installs: npm resolving something
+# other than what was asked for should fail the build here, not surface later as
+# a case failing for a reason that has nothing to do with the case. `claude
+# --version` prints `<version> (Claude Code)`, so the assertion anchors on the
+# leading field.
+ARG CLAUDE_CODE_VERSION=2.1.231
 RUN apt-get update \
  && apt-get install -y --no-install-recommends nodejs npm \
  && rm -rf /var/lib/apt/lists/* \
- && npm install -g @anthropic-ai/claude-code \
- && claude --version
+ && npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
+ && claude --version | grep -q "^${CLAUDE_CODE_VERSION} "
 
 # uv, which the hosted base image already carries and which environment.sh's
 # non-apt phase installs snow with. The script does not bootstrap it, so a base
