@@ -57,13 +57,17 @@ assert_settings_jq '.permissions.deny | index("CronList") != null' 'true'
 # so the typo cannot return.
 assert_settings_jq '.permissions.deny | index("DesignSync") == null' 'true'
 
-# Denied once, reverted deliberately: `AskUserQuestion` is the only way a
-# session under defaultMode "auto" reaches its user, and `SendMessage` is the
-# only way it resumes a subagent rather than respawning one. Both are the kind
-# of entry a later tidy-up of this list would restore without noticing what it
-# costs, so their absence is asserted as explicitly as the caveman entries'
-# presence.
-assert_settings_jq '.permissions.deny | index("AskUserQuestion") == null' 'true'
+# `AskUserQuestion` is denied for its UI rather than for prompt size — see
+# docs/adr/0007-the-question-box-goes-prose-replaces-it.md. Its presence here is
+# asserted alongside the CLAUDE.md bullet that replaces it, because the deny on
+# its own reproduces the failure that removed it from this list once already.
+assert_settings_jq '.permissions.deny | index("AskUserQuestion") != null' 'true'
+
+# `SendMessage` is the opposite case: denied once, reverted deliberately,
+# because it is the only way a session resumes a subagent rather than respawning
+# one. It is the kind of entry a later tidy-up of this list would restore
+# without noticing what it costs, so its absence is asserted as explicitly as
+# the caveman entries' presence.
 assert_settings_jq '.permissions.deny | index("SendMessage") == null' 'true'
 
 assert_settings_jq '.permissions.deny | index("Agent(cavecrew-builder)") != null' 'true'
