@@ -113,7 +113,42 @@ if [ "${list_only}" = true ]; then
   exit 0
 fi
 
-if ! docker info > /dev/null 2>&1; then
+# A hosted Claude Code session ships `dockerd` but starts nothing: PID 1 is the
+# session's own supervisor rather than an init system, so the daemon sits
+# installed and stopped and every run of this suite fails on the check below.
+# Starting it here costs one attempt and removes a step no one can automate from
+# inside a case.
+#
+# `setsid` and the redirections are load-bearing. A daemon started as a plain
+# background job belongs to the calling shell's process group and is killed with
+# it when that shell exits, which in an agent session means the daemon dies
+# between one command and the next.
+#
+# The start is attempted only where it is safe to attempt: no daemon answering,
+# a `dockerd` on PATH, and either root or passwordless sudo. Anywhere else —
+# Docker Desktop, a rootless daemon, a CI runner with a socket mounted in — the
+# original error stands and nothing is second-guessed.
+harness_start_dockerd() {
+  local log="${TMPDIR:-/tmp}/claude-cloud-environment-dockerd.log" sudo=() i
+
+  command -v dockerd > /dev/null 2>&1 || return 1
+  if [ "$(id -u)" -ne 0 ]; then
+    sudo -n true 2> /dev/null || return 1
+    sudo=(sudo -n)
+  fi
+
+  echo "==> no Docker daemon answering; starting dockerd (log: ${log})"
+  setsid nohup "${sudo[@]}" dockerd >> "${log}" 2>&1 < /dev/null &
+  disown 2> /dev/null || true
+
+  for i in $(seq 1 30); do
+    docker info > /dev/null 2>&1 && return 0
+    sleep 1
+  done
+  return 1
+}
+
+if ! docker info > /dev/null 2>&1 && ! harness_start_dockerd; then
   echo "tests/run.sh: no reachable Docker daemon; the suite runs each case in a container" >&2
   exit 2
 fi

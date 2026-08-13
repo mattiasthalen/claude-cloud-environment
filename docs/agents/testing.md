@@ -1,21 +1,37 @@
 # Testing
 
-## Not in a hosted web session
+## In a hosted web session
 
-The container suite **does not run in a Claude Code on the web session**, and
-that is settled rather than broken. Two things are in the way, and fixing the
-first only exposes the second:
+The container suite **does now run in a Claude Code on the web session**. This
+section previously said it could not, on two grounds; the first is automated
+away and the second no longer holds.
 
-1. `/usr/bin/dockerd` is installed but no daemon is running, so the Docker
-   socket does not exist. The session is uid 0, so starting it by hand works.
-2. The session's egress policy then refuses Docker Hub — a `Forbidden` on
-   `ubuntu:24.04` metadata, with the proxy answering `403` to `CONNECT` for
-   `production.cloudfront.docker.com`. That is the blocker #43 hit, and #43
-   closed by moving the suite into CI rather than by opening the allowlist.
+1. `/usr/bin/dockerd` is installed but nothing starts it — PID 1 is the
+   session's own supervisor, not an init system. `tests/run.sh` now starts the
+   daemon itself when none answers and it has the rights to (see its comment at
+   the daemon check). Nothing to do by hand.
+2. Docker Hub is reachable. The old `403` on `ubuntu:24.04` metadata — the
+   blocker #43 hit, and closed by moving the suite into CI rather than by
+   opening the allowlist — does not reproduce. What appears instead is `429 Too
+   Many Requests` on the anonymous pull limit, which clears on its own. It can
+   sit there for tens of minutes, so retry with a backoff rather than
+   concluding the run is blocked.
 
-So do not start the daemon and do not run `./tests/run.sh` there; both cost
-minutes and end at the same wall. What gates a change written in such a session
-is the host-side checks, which need no daemon and no network:
+Two things about the environment are worth knowing before reading a failure as
+a change of yours:
+
+- **The daemon does not survive between commands.** It is reaped once the
+  command that started it returns, even started under `setsid` with output
+  redirected. `tests/run.sh` starting it per run is what makes this a non-issue;
+  a daemon you started by hand in an earlier command will be gone.
+- **Large downloads through the agent proxy get cut.** This is why
+  `tests/base.Dockerfile` installs the CLI from npm rather than from
+  `https://claude.ai/install.sh`, whose fetch of the native binary aborts three
+  attempts running with "the connection dropped while downloading the update".
+  `registry.npmjs.org` is in the proxy's no-proxy list and downloads direct.
+
+The host-side checks still gate anything the container suite does not cover, and
+need no daemon and no network:
 
 ```sh
 bash -n environment.sh          # the script still parses
@@ -23,14 +39,14 @@ bash -n environment.sh          # the script still parses
 ./tests/check-version.test.sh   # SCRIPT_VERSION agrees with the tag it claims
 ```
 
-The container suite itself is then covered by the `quick` tier on the pull
-request, running on GitHub's runners where neither problem exists — that run is
-the real gate. See the tier table below.
+The pull request's `quick` tier run on GitHub's runners remains the real gate —
+a local pass in a hosted session is a faster signal, not a replacement. See the
+tier table below.
 
 ## Running the suite
 
-On a host with Docker (a laptop, or a CI runner — not a hosted web session; see
-above):
+On any host with Docker installed — a laptop, a CI runner, or a hosted web
+session (see above):
 
 ```sh
 ./tests/run.sh                      # every case
@@ -39,10 +55,9 @@ above):
 ./tests/run.sh --tier quick --list  # the cases that tier selects, without running them
 ```
 
-Requirements: a running Docker daemon the client can reach, `jq` on the host,
-and network access to `ubuntu:24.04`, `claude.ai` and the GitHub repositories
-the plugin steps clone. A hosted web session has neither the daemon nor the
-Docker Hub access and cannot be given them.
+Requirements: Docker, `jq` on the host, and network access to `ubuntu:24.04`,
+`registry.npmjs.org` and the GitHub repositories the plugin steps clone. The
+daemon need not already be running — `tests/run.sh` starts one where it can.
 That last one matches the `Full` network access level the environments already
 run at. `tests/run.sh` exits `2` when it cannot run (no daemon, no `jq`, an argument it
 cannot make sense of, a tier selection that would drop a case, image build
@@ -72,12 +87,13 @@ line and `--tier` selects on it.
 
 | Tier | What is in it | Where it runs |
 | --- | --- | --- |
-| `quick` | Cases that install no CLI: validation failures, the collected-failure paths, the settings shape, the shipped skill. Seconds once the base image is built, and dependent on nothing beyond Docker Hub and `claude.ai`. | `.github/workflows/tests.yml`, on `pull_request` — **this is the tier that gates a PR**. |
+| `quick` | Cases that install no CLI: validation failures, the collected-failure paths, the settings shape, the shipped skill. Seconds once the base image is built, and dependent on nothing beyond Docker Hub and `registry.npmjs.org`. | `.github/workflows/tests.yml`, on `pull_request` — **this is the tier that gates a PR**. |
 | `vendor` | The selections that install real CLIs, so the run exercises the Microsoft, Google Cloud, Kubernetes, PyPI and Atlassian repositories. `az` alone is a 636 MB install and `gcloud` 883 MB. | `.github/workflows/tests-full.yml`, which runs the **whole** suite on a daily `schedule` and on `workflow_dispatch`. |
 
-Because a hosted web session cannot run any container case at all, the `quick`
-tier on the pull request is not merely the first gate such a change meets — it
-is the only one that exercises the script in a container.
+The `quick` tier on the pull request is the gate a change written in a hosted
+session must clear, whether or not the author also ran it locally: a local run
+sits behind an anonymous Docker Hub limit and a proxy that cuts large downloads,
+so it can be unavailable for reasons that have nothing to do with the change.
 
 The split is about blast radius as much as cost: the vendor tier depends on five
 external services staying up, and wiring it to `pull_request` would turn an
