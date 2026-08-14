@@ -94,6 +94,10 @@ _Avoid_: prompt, interrupt, user question
 A permission a provisioned session is granted in advance, written into its memory file so an instruction that allows something only when the user has asked for it finds the asking already done. It satisfies a condition rather than overriding a rule, which is the whole of its force — a memory file does not outrank a system prompt, and what the permission rules deny stays denied.
 _Avoid_: override, exemption, blanket permission
 
+**Voice**:
+The character layer a provisioned session answers in, sitting on top of the caveman response style rather than beside it: it supplies vocabulary and tics, the caveman ruleset supplies the grammar, and caveman wins wherever the two disagree. Confined to chat, so nothing persisted carries it.
+_Avoid_: persona, tone, style — *style* is the caveman layer underneath, which the voice never replaces.
+
 **Session shell**:
 A shell a session's own tooling starts, as opposed to one `environment.sh` starts. Login and interactive non-login session shells read different startup files, so anything written for them has to name both.
 _Avoid_: user shell, terminal
