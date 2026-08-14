@@ -75,8 +75,13 @@ What a bump means when planning a roll across environments:
 | Bump | Meaning | Effect on a box |
 | --- | --- | --- |
 | MAJOR | The invocation itself changed — a renamed or removed tool name, or a change in how arguments are read. | The box text must be rewritten, not just re-tagged. |
-| MINOR | A new capability, such as an additional tool that can be requested. | Existing box text stays valid; bump the tag when you want it. |
-| PATCH | A pin bump or a fix. | Existing box text stays valid; bump the tag when you want it. |
+| MINOR | A new capability, such as an additional tool that can be requested, a shipped skill, or a new standing rule in the memory file every session reads. | Existing box text stays valid; re-tag to pick the change up. |
+| PATCH | A pin bump or a fix. | Existing box text stays valid; re-tag to pick the change up. |
+
+Every change a provisioned session can observe warrants a bump — a tool, a pin,
+a shipped skill, or the prose written into `~/.claude/CLAUDE.md`. The tag is the
+only thing that refreshes an environment, so a change that lands without one
+reaches no box, however small it looked in review.
 
 Environments may sit on different tags during a roll. Rolling one environment
 first to prove a change and leaving the rest behind is expected — convergence is

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.10.0
+SCRIPT_VERSION=1.11.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -616,11 +616,27 @@ mkdir -p ~/.claude
 
 # CLAUDE.md
 #
-# The `/code-review` line is here because some harnesses inject a blanket "do
-# not use the agent tool unless asked" instruction, and a session under it reads
-# the skill's fan-out as something to route around rather than run. A memory
-# file does not outrank a system prompt, so this raises the odds and gives the
-# session something to cite; it does not settle the matter.
+# The subagent line generalises the `/code-review` one below it, and its footing
+# is deliberately different from that line's. The harness instruction it answers
+# is usually conditional — "do not use the agent tool unless the user requested
+# it" — and this file is written on the user's behalf, so the bullet claims the
+# condition is met rather than claiming to override anything. Satisfying a
+# condition is something a memory file can genuinely do; outranking a system
+# prompt is not.
+#
+# Its last sentence is not decoration. Without it, "never skip a delegation"
+# points a session straight at the `cavecrew-*` agents and skills the settings
+# write below denies, and a denial then reads as a bug to work around rather
+# than as the boundary. The two are asserted together in
+# tests/cases/claude-md-shape.sh for that reason.
+#
+# The `/code-review` line stays as the named instance, because it carries what
+# the general rule does not: the instruction to say a review was skipped rather
+# than report work reviewed. It is here because some harnesses inject a blanket
+# "do not use the agent tool unless asked" instruction, and a session under it
+# reads the skill's fan-out as something to route around rather than run. A
+# memory file does not outrank a system prompt, so this raises the odds and
+# gives the session something to cite; it does not settle the matter.
 #
 # The blocking-ask line is the other half of denying `AskUserQuestion` in the
 # settings write below, and neither half works alone: the deny removes the tool,
@@ -629,6 +645,7 @@ mkdir -p ~/.claude
 # than as a guess, and settles nothing.
 cat > ~/.claude/CLAUDE.md << 'EOF'
 - Always respond in caveman `full` mode per the caveman plugin ruleset.
+- Subagents are wanted here. Where an instruction allows the Agent tool only when the user has requested it, this line is that request, standing for every session in this environment — so do not skip a skill, review, or delegation on the grounds that it fans out. What `~/.claude/settings.json` denies is still denied: the permission rules are the boundary, not something to route around.
 - `/code-review` spawns one subagent per axis (Standards, Spec) by design — that is expected, not something to work around. Run the skill rather than skipping it, even under a standing instruction against subagents; if that instruction is absolute, say the review was skipped instead of reporting the work reviewed.
 - When a decision is genuinely unsettled and guessing would waste the run, end the turn with the question in prose — number the options and mark your recommendation — rather than proceeding. The absence of a question tool is not licence to guess.
 EOF
