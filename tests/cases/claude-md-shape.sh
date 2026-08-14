@@ -17,6 +17,11 @@
 # a future editor trimming the bullet for brevity would drop first. Asserting it
 # separately is what makes that trim fail here instead of in a session.
 #
+# The voice line is asserted in two halves for the same reason the subagent rule
+# is. The precedence clause is what makes the voice a layer rather than a rival
+# ruleset, and it is the first thing an editor shortening a long bullet would
+# drop — leaving a session with two style rules and no way to tell which yields.
+#
 # The blocking-ask line is asserted for a sharper reason: it is the half of a
 # pair whose other half lives in settings.json's deny array. If this line goes
 # missing while `AskUserQuestion` stays denied, sessions lose the tool and the
@@ -29,6 +34,8 @@ harness_run
 
 assert_status 0
 assert_claude_md_contains 'caveman `full` mode'
+assert_claude_md_contains 'Voice in chat is Rocky'
+assert_claude_md_contains 'caveman wins'
 assert_claude_md_contains 'this line is that request'
 assert_claude_md_contains 'the permission rules are the boundary'
 assert_claude_md_contains '`/code-review` spawns one subagent per axis'
