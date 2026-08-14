@@ -90,6 +90,10 @@ _Avoid_: provided variable, ambient variable
 A question a session puts to its user in prose at the end of a turn, halting the run until it is answered. Distinct from **Parked**: a parked ticket carries its question durably as a comment and the run continues elsewhere, whereas a blocking ask exists only in a transcript nobody may be watching.
 _Avoid_: prompt, interrupt, user question
 
+**Standing request**:
+A permission a provisioned session is granted in advance, written into its memory file so an instruction that allows something only when the user has asked for it finds the asking already done. It satisfies a condition rather than overriding a rule, which is the whole of its force — a memory file does not outrank a system prompt, and what the permission rules deny stays denied.
+_Avoid_: override, exemption, blanket permission
+
 **Session shell**:
 A shell a session's own tooling starts, as opposed to one `environment.sh` starts. Login and interactive non-login session shells read different startup files, so anything written for them has to name both.
 _Avoid_: user shell, terminal
