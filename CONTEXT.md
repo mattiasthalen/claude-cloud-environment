@@ -40,6 +40,10 @@ _Avoid_: `task/<slug>`, integration branch — both name a thing that no longer 
 **Chain mode**:
 A run where the stack API is unavailable, so layers are still based on each other but no stack object exists and the human merges bottom-up.
 
+**Stack review**:
+The single two-axis review of `trunk...top layer` that closes a run, with the parent issue as the spec where the run has one. Distinct from the per-layer review, which reads one ticket against its own acceptance criteria and cannot see across layers.
+_Avoid_: final review, integration review
+
 **Ready**:
 The state of a layer swarm has finished with: reviewed, rebased onto the layer below, green, and no longer a draft. Not a claim that review found nothing.
 _Avoid_: approved, done, complete

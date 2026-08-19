@@ -177,7 +177,22 @@ An agent that came back having recorded a blocking edge leaves the in-flight set
 
 The run ends when the frontier is empty **and** the in-flight set is empty. Every remaining open ticket is then either parked on a question or blocked by one that is.
 
-### 6. Report
+### 6. Stack review
+
+The per-layer review of step 3 reads one ticket against one ticket's acceptance criteria. Two classes of finding are invisible to it and visible only here: a requirement of the parent spec that no child ticket claimed, and two layers that duplicate or contradict each other. When the parent issue *is* a specification, that first class is the one that matters — the stack can be six green layers and still not be the thing the spec asked for.
+
+So once the run has ended — frontier empty, in-flight set empty — review the stack as one diff, once, inline from this session for step 3's reason.
+
+Skip it in exactly two cases, and say which in the report: **nothing stacked**, or **one layer stacked** — a one-layer stack is the diff step 3 already reviewed, and reviewing it twice buys nothing.
+
+1. Run `/code-review` over `<trunk>...<top-layer-branch>` — the trunk as the fixed point, the top layer's head as the target. Every layer is rebased onto the layer below and the bottom onto the trunk, so that diff is the run's whole product and nothing else. Give both axes that ref pair as the diff command outright, in place of the skill's `...HEAD` default: its sub-agents run their own `git diff` in this session's working tree, which is on none of the layer branches. Nothing is checked out and no worktree is cut.
+2. Name the **parent issue** as the spec explicitly, ahead of the `Closes #NN` refs the skill would otherwise resolve — those name the children, and the parent is the one document no per-layer review ever read. Pass the child tickets alongside it, and say which of them are parked or red: their work is not in this diff, so their requirements would otherwise read as gaps in the parent's coverage. For a named set with no parent, tell the skill there is no spec, so the Spec axis skips rather than stopping to ask for one. The Standards axis needs nothing extra.
+
+**Findings here are reported, never fixed.** A fix at this level lands in one layer and forces a rebase of every layer above it, on a stack the human may already be reading — see `0009-the-stack-gets-one-review-of-its-own.md`. So: comment each finding on the pull request of the layer it belongs to, comment the ones that belong to no single layer on the parent issue, and carry all of them in the report. Nothing is re-stacked and no layer's ready state changes.
+
+A stack review that cannot run leaves the run at *stack review not run*, with the reason, exactly as a per-layer review does. Never retry it and never report the stack as reviewed.
+
+### 7. Report
 
 Write the report as a comment on the parent issue — or, for a named set with no parent, on the bottom layer's pull request. It has to outlive the session, and the parked and blocked entries are the part that has to be found again:
 
@@ -195,12 +210,18 @@ Parked:
 Not dispatched:
   #35 — blocked by #31, which parked
 
+Stack review (6 layers against #25):
+  Spec — #25's "every provisioned environment logs the pin it resolved" is in no layer; commented on #25
+  Standards — the tier table is duplicated across layers 3 and 5; commented on the layer 5 pull request
+
 Every ticket closes when the stack merges. Merge from the top layer down.
 ```
 
 One block, two kinds of entry, for layers that shipped with review debt: a layer that stacked with findings left unfixed, pointing at the comment that carries them, and a layer whose review could not run, with the reason. They are the same fact to a reader. Omit a block entirely when it has no entries; an absent block means every ready layer was reviewed and nothing was left open, so it can never be read as silence.
 
 A review that could not run at all leaves the ticket at *not run*, with the reason, and its layer stacks too — never silently upgraded to reviewed, and never retried later in the run. This session is already the level that can fan out, so a failure here is the environment's answer, not a scheduling accident.
+
+The **stack review** block carries the stack review's findings, per axis, each with the comment it was left on — and it is the one block that is never silently absent. A run that skipped the stack review says so on that line instead (`skipped — one layer stacked`, `not run — <reason>`), because "no cross-layer findings" and "nobody looked across the layers" are opposite facts.
 
 Where Preflight found a squash-only repo that rewrites commit messages, or chain mode, say so here in one line each. Print the parked questions as text. Answering them is the user's next move, in their own time — swarm does not wait on them.
 
@@ -214,6 +235,7 @@ You are a filter, not a relay. One line per state transition, nothing else:
 #29 ready — layer 3, reviewed, 2 findings fixed
 #31 parked — needs-info, out of the stack
 #33 blocked — recorded an edge on #29, back to the frontier next wave
+stack reviewed — 6 layers, 2 findings, commented
 ```
 
 A ticket's **ready** line comes after step 4 has reviewed, rebased and stacked it, not when the agent reports — the review outcome is part of the line, so the line cannot precede the review. Review, fix agent, rebase and stack are steps of your own loop, not states the user steers: they collapse into that one line rather than getting four of their own.
