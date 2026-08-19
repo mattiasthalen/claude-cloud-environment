@@ -721,10 +721,14 @@ run_step "plugin install mattpocock-skills@mattpocock" \
 # paths the CLI accepts.
 CAVEMAN_MANIFEST=~/.claude/plugins/marketplaces/caveman/.claude-plugin/plugin.json
 
+# A manifest that is not there is not this step's failure to report: the only
+# way it is missing is that the marketplace clone above did not happen, and that
+# step has already said so. Returning 0 keeps one upstream outage to one named
+# failure instead of two.
 normalize_caveman_agent_paths() {
   local tmp
 
-  [ -f "${CAVEMAN_MANIFEST}" ] || return 1
+  [ -f "${CAVEMAN_MANIFEST}" ] || return 0
 
   tmp=$(mktemp)
   if jq '

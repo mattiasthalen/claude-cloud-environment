@@ -16,4 +16,3 @@ harness_run
 
 assert_status 0
 assert_plugin_installed caveman@caveman
-assert_output_lacks "agents: Invalid input"

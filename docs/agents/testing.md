@@ -179,10 +179,13 @@ From `tests/lib.sh`:
 | `assert_settings_jq <filter> <expected>` | Run a `jq` filter over the `settings.json` the run left behind; fails if it is missing or does not parse. |
 | `assert_claude_md_contains <text>` | Fixed-string match over the `~/.claude/CLAUDE.md` the run wrote; fails if the file is missing. |
 | `assert_claude_dotfile <name>` | A dotfile of that exact name directly under `~/.claude` after the run — for markers whose existence is their whole content. |
+| `assert_plugin_installed <plugin@marketplace>` | The plugin is in the CLI's own registry after the run — the claim `enabledPlugins` in `settings.json` cannot make, because that entry is written whether or not the install succeeded. |
 | `harness_fail <message>` | Fail with a custom message. |
 
 After `harness_run`, `HARNESS_STATUS`, `HARNESS_STDOUT`, `HARNESS_STDERR`,
-`HARNESS_SETTINGS`, `HARNESS_CLAUDE_MD`, `HARNESS_CLAUDE_DOTFILES`, `HARNESS_TOOLS`, `HARNESS_SKILLS` and `HARNESS_PACKAGES` hold the raw result if a case needs something the assertions
+`HARNESS_SETTINGS`, `HARNESS_CLAUDE_MD`, `HARNESS_CLAUDE_DOTFILES`,
+`HARNESS_INSTALLED_PLUGINS`, `HARNESS_TOOLS`, `HARNESS_SKILLS` and
+`HARNESS_PACKAGES` hold the raw result if a case needs something the assertions
 above do not cover. Every assertion failure prints the case name, the
 invocation, the exit code and the script's stdout and stderr.
 
