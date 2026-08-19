@@ -13,6 +13,9 @@
 #   /out/CLAUDE.md           ~/.claude/CLAUDE.md as the run left it, if any
 #   /out/claude-dotfiles     the dotfile names directly under ~/.claude, one
 #                            per line, empty when there are none
+#   /out/installed-plugins.json
+#                            ~/.claude/plugins/installed_plugins.json as the run
+#                            left it, if any
 #   /out/tools               the tools the run left on PATH
 #   /out/skills              the skills the run left installed
 #   /out/packages            the apt packages the container has
@@ -116,6 +119,14 @@ fi
 
 if [ -f "${HOME}/.claude/CLAUDE.md" ]; then
   cp "${HOME}/.claude/CLAUDE.md" /out/CLAUDE.md
+fi
+
+# The plugin registry, which is the only place a plugin install records itself:
+# a plugin whose manifest the CLI rejects leaves an enabling entry in
+# settings.json and nothing here, so the two files together are what separate
+# "installed" from "asked for".
+if [ -f "${HOME}/.claude/plugins/installed_plugins.json" ]; then
+  cp "${HOME}/.claude/plugins/installed_plugins.json" /out/installed-plugins.json
 fi
 
 # The dotfiles under ~/.claude, by name only. Some of what the script leaves

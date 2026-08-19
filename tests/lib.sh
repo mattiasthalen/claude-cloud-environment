@@ -19,6 +19,7 @@ HARNESS_STDOUT=""
 HARNESS_STDERR=""
 HARNESS_SETTINGS=""
 HARNESS_CLAUDE_MD=""
+HARNESS_INSTALLED_PLUGINS=""
 HARNESS_TOOLS=""
 HARNESS_SKILLS=""
 HARNESS_PACKAGES=""
@@ -136,6 +137,10 @@ harness_run() {
   HARNESS_CLAUDE_DOTFILES=""
   if [ -f "${out}/claude-dotfiles" ]; then
     HARNESS_CLAUDE_DOTFILES=$(cat "${out}/claude-dotfiles")
+  fi
+  HARNESS_INSTALLED_PLUGINS=""
+  if [ -f "${out}/installed-plugins.json" ]; then
+    HARNESS_INSTALLED_PLUGINS=$(cat "${out}/installed-plugins.json")
   fi
   HARNESS_TOOLS=""
   if [ -f "${out}/tools" ]; then
@@ -321,6 +326,23 @@ assert_claude_dotfile() {
   local name=$1
   printf '%s\n' "${HARNESS_CLAUDE_DOTFILES}" | grep -qx -- "${name}" ||
     harness_fail "expected ~/.claude/${name} after the run, found: ${HARNESS_CLAUDE_DOTFILES:-<none>}"
+}
+
+# assert_plugin_installed <plugin@marketplace>
+# A plugin the run actually installed, as the CLI's own registry reports it.
+# Enablement lives in settings.json and is written whether or not the install
+# worked, so this is the assertion that a failed install cannot pass.
+assert_plugin_installed() {
+  local plugin=$1 installed
+  [ -n "${HARNESS_INSTALLED_PLUGINS}" ] ||
+    harness_fail "expected the run to install plugins, found no plugin registry"
+  installed=$(printf '%s' "${HARNESS_INSTALLED_PLUGINS}" |
+    jq -r --arg plugin "${plugin}" '.plugins | has($plugin)' 2>&1) ||
+    harness_fail "the plugin registry did not parse as JSON: ${installed}"
+  [ "${installed}" = "true" ] ||
+    harness_fail "expected '${plugin}' installed after the run, registry has: $(
+      printf '%s' "${HARNESS_INSTALLED_PLUGINS}" | jq -r '.plugins | keys | join(", ")' 2>/dev/null
+    )"
 }
 
 # assert_settings_jq <jq-filter> <expected-output>

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.13.0
+SCRIPT_VERSION=1.13.1
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -702,9 +702,52 @@ run_step "marketplace add mattpocock/skills" \
 run_step "plugin install mattpocock-skills@mattpocock" \
   claude plugin install mattpocock-skills@mattpocock </dev/null
 
-# Add caveman plugin
+# Add caveman plugin.
+#
+# The manifest normalisation between the two commands is a workaround for an
+# upstream manifest the installed CLI rejects. The caveman plugin declares its
+# subagents as `agents/cavecrew-<role>.md`; the CLI's manifest schema accepts a
+# relative path only in explicitly-relative form, so a bare `agents/...` entry
+# fails validation and takes the whole install down with
+# `Validation errors: agents: Invalid input`. Prefixing `./` is the entire
+# difference between a rejected manifest and an accepted one.
+#
+# Rewriting the paths rather than deleting the `agents` key, even though this
+# script denies all three cavecrew subagents in the settings write below:
+# deletion would drop any agent upstream adds later, and the denial belongs in
+# one place. The rewrite is idempotent and narrow — an entry already written
+# `./…`, an absolute path, and a manifest with no `agents` key are all left
+# exactly as they are, so the step turns into a no-op the moment upstream ships
+# paths the CLI accepts.
+CAVEMAN_MANIFEST=~/.claude/plugins/marketplaces/caveman/.claude-plugin/plugin.json
+
+normalize_caveman_agent_paths() {
+  local tmp
+
+  [ -f "${CAVEMAN_MANIFEST}" ] || return 1
+
+  tmp=$(mktemp)
+  if jq '
+    if (.agents | type) == "array" then
+      .agents |= map(
+        if type == "string" and ((startswith("./") or startswith("/")) | not)
+        then "./" + .
+        else .
+        end
+      )
+    else . end
+  ' "${CAVEMAN_MANIFEST}" > "${tmp}"; then
+    mv "${tmp}" "${CAVEMAN_MANIFEST}"
+    return 0
+  fi
+
+  rm -f "${tmp}"
+  return 1
+}
+
 run_step "marketplace add JuliusBrussee/caveman" \
   claude plugin marketplace add JuliusBrussee/caveman </dev/null
+run_step "normalize caveman agent paths" normalize_caveman_agent_paths
 run_step "plugin install caveman@caveman" \
   claude plugin install caveman@caveman </dev/null
 
