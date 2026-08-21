@@ -173,6 +173,7 @@ From `tests/lib.sh`:
 | `assert_first_line <line>` | First line of stdout. |
 | `assert_output_contains <text>` | Fixed-string match over stdout and stderr. |
 | `assert_output_lacks <text>` | The same match, negated — for asserting a phase did *not* run. |
+| `assert_no_steps_ran` | No step announcement (`==> `) appears in the output — for a case whose whole point is that validation fails before any step is attempted. |
 | `assert_tool_on_path <binary>` | The binary is on PATH in the container after the run. |
 | `assert_skill_installed <name>` | A non-empty `~/.claude/skills/<name>/SKILL.md` after the run. |
 | `assert_skill_absent <name>` | The negation, for a run whose fetch was arranged to fail. |

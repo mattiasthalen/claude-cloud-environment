@@ -244,6 +244,15 @@ assert_output_lacks() {
   return 0
 }
 
+# assert_no_steps_ran
+# No step announcement ("==> ") appears in the run's output — for a case whose
+# whole point is that validation fails before any step is attempted.
+assert_no_steps_ran() {
+  printf '%s\n%s\n' "${HARNESS_STDOUT}" "${HARNESS_STDERR}" | grep -qF -- "==> " &&
+    harness_fail "expected validation to fail before any step ran"
+  return 0
+}
+
 # assert_tool_on_path <binary>
 # The binary the run left on PATH, as the container reports it — presence proves
 # a file landed, which is a different claim from the script's own verification
