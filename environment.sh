@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.13.1
+SCRIPT_VERSION=2.0.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -35,6 +35,12 @@ NEWRELIC_VERSION=0.113.4
 # rules out. The major is a decision rather than a default — see
 # docs/adr/0005-helm-4-over-helm-3.md.
 HELM_VERSION=4.2.3
+# twg is pinned bare, the way the binary reports itself: the download URL and
+# the checksums file carry a `v` the lockfile drops, and `twg --version` prints
+# exactly this value. Upstream's `curl | bash` installer defaults to whatever
+# version it currently names, which is exactly the floating source this block
+# rules out.
+TWG_VERSION=1.1.1
 # git-lfs is the one pin with a trailing `*`, and the exception is narrower than
 # it looks. It comes from the plain Ubuntu archive rather than a vendor
 # repository, so the part after the upstream version is a Debian revision
@@ -45,9 +51,6 @@ HELM_VERSION=4.2.3
 # revision, so the verification below still asserts a version rather than
 # settling for a liveness check.
 GIT_LFS_VERSION=3.4.1*
-# acli: deliberately unpinned — upstream offers no pin, and asserting a version
-# would turn any upstream acli release into a session-blocking failure for every
-# environment that requested it.
 
 # First line of output, so the container-start log always says which snapshot
 # ran — including on a run that dies before it finishes.
@@ -128,7 +131,7 @@ report_failures() {
 # lose depending on argument order.
 # ---------------------------------------------------------------------------
 
-VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli kubelogin newrelic helm git-lfs"
+VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect twg kubelogin newrelic helm git-lfs"
 
 requested_tools=()
 unknown_tools=()
@@ -195,7 +198,7 @@ for tool in "$@"; do
     kubectl)                want_apt kubectl k8s "kubectl=${KUBECTL_VERSION}" ;;
     snow)                   want_uv snow "snowflake-cli==${SNOW_VERSION}" ;;
     prefect)                want_uv prefect "prefect==${PREFECT_VERSION}" ;;
-    acli)                   want_apt acli atlassian acli ;;
+    twg)                    want_release twg "${TWG_VERSION}" ;;
     kubelogin)              want_release kubelogin "${KUBELOGIN_VERSION}" ;;
     newrelic)               want_release newrelic "${NEWRELIC_VERSION}" ;;
     helm)                   want_release helm "${HELM_VERSION}" ;;
@@ -305,20 +308,6 @@ EOF
   chmod 644 /etc/apt/sources.list.d/azure-cli.sources
 }
 
-# Atlassian: a single `stable` suite that carries exactly one version of acli,
-# which is why acli is this script's unpinned exception. The armoured key is used
-# as-is, as above and for the same reason.
-setup_repo_atlassian() {
-  local keyring=/etc/apt/keyrings/acli-archive-keyring.asc
-
-  mkdir -p /etc/apt/keyrings || return 1
-  curl -fsSL https://acli.atlassian.com/gpg/public-key.asc -o "${keyring}" || return 1
-  chmod 644 "${keyring}" || return 1
-  echo "deb [arch=amd64 signed-by=${keyring}] https://acli.atlassian.com/linux/deb stable main" \
-    > /etc/apt/sources.list.d/acli.list || return 1
-  chmod 644 /etc/apt/sources.list.d/acli.list
-}
-
 # Google Cloud: one repository for every gcloud package, base and components
 # alike — the deb ships with the component manager disabled, so a component is
 # an ordinary apt package from here. The armoured key is used as-is for the same
@@ -356,7 +345,6 @@ if [ ${#apt_pkgs[@]} -gt 0 ]; then
       # vendor at all: an empty vendor would be indistinguishable from a vendor
       # someone forgot to write, and the arm below is meant to catch that.
       ubuntu) ;;
-      atlassian) run_step "repository setup: atlassian" setup_repo_atlassian ;;
       *)
         echo "environment.sh: no repository setup for vendor: ${repo}" >&2
         FAILED_STEPS+=("repository setup: ${repo}")
@@ -557,6 +545,50 @@ install_helm() {
   install -m 0755 "${workdir}/linux-amd64/helm" /usr/local/bin/helm
 }
 
+# twg. Atlassian's Teamwork Graph CLI ships as a raw binary from the vendor's
+# download host — the same file upstream's documented `curl | bash` installer
+# fetches, taken directly so nothing from the network is executed and the
+# checksum runs before anything lands. The project's GitHub repository carries
+# its issues and release notes but no release assets, so the vendor host is not
+# a choice between mirrors.
+#
+# The checksums arrive as one file covering every platform's binary rather than
+# as a per-file sidecar, so the Linux x64 line is selected out of it before
+# `sha256sum -c` reads it, the way newrelic's combined file is. Selecting on
+# the whole second field is what keeps that line from being confused with the
+# other platforms' names it prefixes. A pin that does not exist upstream fails
+# earlier still: neither URL resolves.
+#
+# No archive, so nothing is extracted: the download is the binary. `install`
+# writes the destination in one move, which is what keeps a failure from
+# leaving a half-written twg on PATH — and writes it to /usr/local/bin, which
+# every session shell carries, rather than the ~/.local/bin the vendor
+# installer defaults to.
+#
+# The tool is installed, not configured: no login, no token, no profile. Those
+# are credentials, and credentials are the box's business rather than this
+# script's — see README.md.
+install_twg() {
+  local version=$1
+  local base="https://teamwork-graph.atlassian.com/cli"
+  local binary="twg-linux-x64-v${version}"
+  local checksums="SHA256SUMS-v${version}"
+  local workdir
+
+  workdir=$(mktemp -d) || return 1
+  # shellcheck disable=SC2064
+  trap "rm -rf '${workdir}'" RETURN
+
+  curl -fsSL "${base}/${binary}" -o "${workdir}/${binary}" || return 1
+  curl -fsSL "${base}/${checksums}" -o "${workdir}/${checksums}" || return 1
+  (
+    cd "${workdir}" &&
+      awk -v binary="${binary}" '$2 == binary' "${checksums}" | sha256sum -c -
+  ) || return 1
+
+  install -m 0755 "${workdir}/${binary}" /usr/local/bin/twg
+}
+
 if [ ${#release_tools[@]} -gt 0 ]; then
   for i in "${!release_tools[@]}"; do
     release_failures_before=${#FAILED_STEPS[@]}
@@ -571,6 +603,9 @@ if [ ${#release_tools[@]} -gt 0 ]; then
         ;;
       helm)
         run_step "release install helm v${release_pins[i]}" install_helm "${release_pins[i]}"
+        ;;
+      twg)
+        run_step "release install twg v${release_pins[i]}" install_twg "${release_pins[i]}"
         ;;
       *)
         echo "environment.sh: no release installer for tool: ${release_tools[i]}" >&2
@@ -1044,16 +1079,13 @@ verify_version() {
 }
 
 # verify_runs <tool> <command...>
-# One row for a tool whose printed version is not comparable to a pin. Two kinds
-# of tool land here: an add-on, which reports the version of what it plugs into
-# rather than the apt version it was installed at, and acli, which has no pin to
-# compare with at all — inventing one against a moving upstream would turn any
-# acli release into a session-blocking failure for every environment that
-# requested it. Exit zero and non-empty output is the whole assertion; for the
-# add-on, which build landed is already guaranteed by the pin on the package.
-# Invoking still catches the failure that matters here — a build that installed
-# but will not start. The row carries the first line of what the tool printed,
-# so it stays one line like every other.
+# One row for a tool whose printed version is not comparable to a pin: an
+# add-on, which reports the version of what it plugs into rather than the apt
+# version it was installed at. Exit zero and non-empty output is the whole
+# assertion; which build landed is already guaranteed by the pin on the
+# package. Invoking still catches the failure that matters here — a build that
+# installed but will not start. The row carries the first line of what the tool
+# printed, so it stays one line like every other.
 verify_runs() {
   local tool=$1 actual
   shift
@@ -1175,7 +1207,9 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
     kubectl)                verify_version kubectl "v${KUBECTL_VERSION%%-*}" kubectl_reported_version ;;
     snow)                   verify_version snow "${SNOW_VERSION}" snow_reported_version ;;
     prefect)                verify_version prefect "${PREFECT_VERSION}" prefect --version ;;
-    acli)                   verify_runs acli acli --version ;;
+    # twg prints the bare version, `1.1.1`, so the pin is compared as it is
+    # written in the lockfile and no reader function is needed.
+    twg)                    verify_version twg "${TWG_VERSION}" twg --version ;;
     kubelogin)              verify_version kubelogin "v${KUBELOGIN_VERSION}" kubelogin_reported_version ;;
     newrelic)               verify_version newrelic "${NEWRELIC_VERSION}" newrelic_reported_version ;;
     # helm's --template takes a Go template over the same struct `helm version`

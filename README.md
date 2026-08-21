@@ -22,9 +22,17 @@ are. Use the full `vMAJOR.MINOR.PATCH` form — a truncated `v1` or `v1.0` would
 be a moving target and is not a release tag here.
 
 The argument list is the complete manifest of what gets installed. Valid names
-are the binary names: `gcloud`, `az`, `kubectl`, `snow`, `prefect`, `acli`,
+are the binary names: `gcloud`, `az`, `kubectl`, `snow`, `prefect`, `twg`,
 `kubelogin`, `newrelic`, `helm`, `git-lfs`, and the add-on
 `gke-gcloud-auth-plugin` (which requires `gcloud` in the same list).
+
+`twg` is Atlassian's Teamwork Graph CLI, the agent-first successor this repo
+ships in place of `acli` — see `docs/adr/0010-twg-replaces-acli.md`. The script
+installs it and configures nothing: authentication is the box's business, via
+the environment variables twg itself reads (`TWG_TOKEN` with `TWG_USER` for API
+tokens, `TWG_OAUTH_ACCESS_TOKEN` for delegated OAuth, `TWG_BBC_TOKEN` for
+Bitbucket) — see [Atlassian's authentication
+docs](https://developer.atlassian.com/platform/teamwork-graph/twg-cli/getting-started/how-authentication-works/).
 An unknown name fails before anything is installed. No arguments is a valid
 invocation and installs the plugins and settings only.
 
