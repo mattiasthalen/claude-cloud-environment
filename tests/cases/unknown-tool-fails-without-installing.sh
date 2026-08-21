@@ -16,6 +16,7 @@ assert_output_contains "kubectl"
 assert_output_contains "snow"
 assert_output_contains "prefect"
 assert_output_contains "acli"
+assert_output_contains "twg"
 assert_output_contains "kubelogin"
 
 if printf '%s\n%s\n' "${HARNESS_STDOUT}" "${HARNESS_STDERR}" | grep -qF -- "==> "; then

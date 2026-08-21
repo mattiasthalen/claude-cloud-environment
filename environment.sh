@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.13.1
+SCRIPT_VERSION=1.14.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -35,6 +35,12 @@ NEWRELIC_VERSION=0.113.4
 # rules out. The major is a decision rather than a default — see
 # docs/adr/0005-helm-4-over-helm-3.md.
 HELM_VERSION=4.2.3
+# twg is pinned bare, the way the binary reports itself: the download URL and the
+# checksums file carry a `v` the lockfile drops, and `twg --version` prints
+# exactly this value. Upstream's documented installer is a `curl | bash` script
+# that defaults to whatever version it currently names, which is exactly the
+# floating source this block rules out.
+TWG_VERSION=1.1.1
 # git-lfs is the one pin with a trailing `*`, and the exception is narrower than
 # it looks. It comes from the plain Ubuntu archive rather than a vendor
 # repository, so the part after the upstream version is a Debian revision
@@ -128,7 +134,7 @@ report_failures() {
 # lose depending on argument order.
 # ---------------------------------------------------------------------------
 
-VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli kubelogin newrelic helm git-lfs"
+VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli twg kubelogin newrelic helm git-lfs"
 
 requested_tools=()
 unknown_tools=()
@@ -196,6 +202,7 @@ for tool in "$@"; do
     snow)                   want_uv snow "snowflake-cli==${SNOW_VERSION}" ;;
     prefect)                want_uv prefect "prefect==${PREFECT_VERSION}" ;;
     acli)                   want_apt acli atlassian acli ;;
+    twg)                    want_release twg "${TWG_VERSION}" ;;
     kubelogin)              want_release kubelogin "${KUBELOGIN_VERSION}" ;;
     newrelic)               want_release newrelic "${NEWRELIC_VERSION}" ;;
     helm)                   want_release helm "${HELM_VERSION}" ;;
@@ -557,6 +564,51 @@ install_helm() {
   install -m 0755 "${workdir}/linux-amd64/helm" /usr/local/bin/helm
 }
 
+# twg. Atlassian's Teamwork Graph CLI ships as a raw binary from the vendor's
+# own download host — the same file upstream's documented `curl … | bash`
+# installer fetches, taken directly so that nothing from the network is
+# executed and the checksum runs before anything lands. The project's GitHub
+# repository carries its issue tracker and release notes but no release assets,
+# so the vendor host is not a choice between mirrors.
+#
+# The checksums arrive as one file covering every platform's binary rather than
+# as a per-file sidecar, so the Linux x64 line is selected out of it before
+# `sha256sum -c` reads it, the way newrelic's combined file is. Selecting on the
+# whole second field rather than by substring is what keeps that line from being
+# confused with another platform's. A pin that does not exist upstream fails
+# earlier still: neither URL resolves.
+#
+# There is no archive, so nothing is extracted: the download is the binary
+# itself. `install` sets the executable bit the download does not carry and
+# writes the destination in one move, which is what keeps a failure from leaving
+# a half-written twg on PATH — and it writes to /usr/local/bin, which every
+# session shell carries, rather than the ~/.local/bin the vendor's installer
+# defaults to.
+#
+# The tool is installed, not configured: no login, no token, no site. Those are
+# credentials, and credentials are the box's business rather than this script's
+# — see README.md.
+install_twg() {
+  local version=$1
+  local base="https://teamwork-graph.atlassian.com/cli"
+  local binary="twg-linux-x64-v${version}"
+  local checksums="SHA256SUMS-v${version}"
+  local workdir
+
+  workdir=$(mktemp -d) || return 1
+  # shellcheck disable=SC2064
+  trap "rm -rf '${workdir}'" RETURN
+
+  curl -fsSL "${base}/${binary}" -o "${workdir}/${binary}" || return 1
+  curl -fsSL "${base}/${checksums}" -o "${workdir}/${checksums}" || return 1
+  (
+    cd "${workdir}" &&
+      awk -v binary="${binary}" '$2 == binary' "${checksums}" | sha256sum -c -
+  ) || return 1
+
+  install -m 0755 "${workdir}/${binary}" /usr/local/bin/twg
+}
+
 if [ ${#release_tools[@]} -gt 0 ]; then
   for i in "${!release_tools[@]}"; do
     release_failures_before=${#FAILED_STEPS[@]}
@@ -571,6 +623,9 @@ if [ ${#release_tools[@]} -gt 0 ]; then
         ;;
       helm)
         run_step "release install helm v${release_pins[i]}" install_helm "${release_pins[i]}"
+        ;;
+      twg)
+        run_step "release install twg v${release_pins[i]}" install_twg "${release_pins[i]}"
         ;;
       *)
         echo "environment.sh: no release installer for tool: ${release_tools[i]}" >&2
@@ -1176,6 +1231,9 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
     snow)                   verify_version snow "${SNOW_VERSION}" snow_reported_version ;;
     prefect)                verify_version prefect "${PREFECT_VERSION}" prefect --version ;;
     acli)                   verify_runs acli acli --version ;;
+    # twg prints the bare version and nothing else, so the pin is compared as
+    # the lockfile writes it and no reader function is needed.
+    twg)                    verify_version twg "${TWG_VERSION}" twg --version ;;
     kubelogin)              verify_version kubelogin "v${KUBELOGIN_VERSION}" kubelogin_reported_version ;;
     newrelic)               verify_version newrelic "${NEWRELIC_VERSION}" newrelic_reported_version ;;
     # helm's --template takes a Go template over the same struct `helm version`
