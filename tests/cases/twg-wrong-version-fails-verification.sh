@@ -2,8 +2,9 @@
 # A twg already present at a version nobody chose fails verification, carrying
 # both the version found and the version expected. twg is pinnable — the vendor
 # publishes per-version binaries — so its reported version is compared against
-# the lockfile the way every pinned tool's is, and not merely checked for
-# liveness the way acli beside it is (see acli-version-is-not-asserted).
+# the lockfile the way every pinned tool's is. twg replaced acli, this script's
+# one unpinned tool, precisely because it can be held to a pin — see
+# docs/adr/0010-twg-replaces-acli.md.
 #
 # The presence guard still leaves the impostor alone: it deliberately does not
 # look at the version and does not self-heal a wrong one, so nothing is

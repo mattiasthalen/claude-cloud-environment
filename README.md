@@ -22,8 +22,8 @@ are. Use the full `vMAJOR.MINOR.PATCH` form — a truncated `v1` or `v1.0` would
 be a moving target and is not a release tag here.
 
 The argument list is the complete manifest of what gets installed. Valid names
-are the binary names: `gcloud`, `az`, `kubectl`, `snow`, `prefect`, `acli`,
-`twg`, `kubelogin`, `newrelic`, `helm`, `git-lfs`, and the add-on
+are the binary names: `gcloud`, `az`, `kubectl`, `snow`, `prefect`, `twg`,
+`kubelogin`, `newrelic`, `helm`, `git-lfs`, and the add-on
 `gke-gcloud-auth-plugin` (which requires `gcloud` in the same list).
 An unknown name fails before anything is installed. No arguments is a valid
 invocation and installs the plugins and settings only.
@@ -37,8 +37,10 @@ restored — bring down the real blobs with no further step.
 
 `twg` is Atlassian's Teamwork Graph CLI, the agent-first way into Jira and the
 rest of the graph, and worth naming for an environment whose sessions work
-there. The script installs it and configures nothing: authentication is the
-box's business, through the environment variables twg reads itself —
+there. It replaced `acli` in the valid set — see
+`docs/adr/0010-twg-replaces-acli.md` for why. The script installs it and
+configures nothing: authentication is the box's business, through the
+environment variables twg reads itself —
 `TWG_TOKEN` together with `TWG_USER` for an API token, `TWG_OAUTH_ACCESS_TOKEN`
 for a delegated OAuth token, or `TWG_BBC_TOKEN` for Bitbucket. See [Atlassian's
 authentication docs](https://developer.atlassian.com/platform/teamwork-graph/twg-cli/getting-started/how-authentication-works/)

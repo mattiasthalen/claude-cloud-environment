@@ -147,7 +147,7 @@ done
 # which is how newrelic and helm arrived with four cases that could not go green.
 # Adding a tool to environment.sh means adding it here.
 : > /out/tools
-for tool in gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli twg kubelogin newrelic helm git-lfs; do
+for tool in gcloud gke-gcloud-auth-plugin az kubectl snow prefect twg kubelogin newrelic helm git-lfs; do
   if resolved=$(command -v "${tool}"); then
     echo "${tool} ${resolved}" >> /out/tools
   fi

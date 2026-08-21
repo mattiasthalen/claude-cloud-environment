@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=1.14.0
+SCRIPT_VERSION=2.0.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -51,9 +51,6 @@ TWG_VERSION=1.1.1
 # revision, so the verification below still asserts a version rather than
 # settling for a liveness check.
 GIT_LFS_VERSION=3.4.1*
-# acli: deliberately unpinned — upstream offers no pin, and asserting a version
-# would turn any upstream acli release into a session-blocking failure for every
-# environment that requested it.
 
 # First line of output, so the container-start log always says which snapshot
 # ran — including on a run that dies before it finishes.
@@ -134,7 +131,7 @@ report_failures() {
 # lose depending on argument order.
 # ---------------------------------------------------------------------------
 
-VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect acli twg kubelogin newrelic helm git-lfs"
+VALID_TOOLS="gcloud gke-gcloud-auth-plugin az kubectl snow prefect twg kubelogin newrelic helm git-lfs"
 
 requested_tools=()
 unknown_tools=()
@@ -201,7 +198,6 @@ for tool in "$@"; do
     kubectl)                want_apt kubectl k8s "kubectl=${KUBECTL_VERSION}" ;;
     snow)                   want_uv snow "snowflake-cli==${SNOW_VERSION}" ;;
     prefect)                want_uv prefect "prefect==${PREFECT_VERSION}" ;;
-    acli)                   want_apt acli atlassian acli ;;
     twg)                    want_release twg "${TWG_VERSION}" ;;
     kubelogin)              want_release kubelogin "${KUBELOGIN_VERSION}" ;;
     newrelic)               want_release newrelic "${NEWRELIC_VERSION}" ;;
@@ -312,20 +308,6 @@ EOF
   chmod 644 /etc/apt/sources.list.d/azure-cli.sources
 }
 
-# Atlassian: a single `stable` suite that carries exactly one version of acli,
-# which is why acli is this script's unpinned exception. The armoured key is used
-# as-is, as above and for the same reason.
-setup_repo_atlassian() {
-  local keyring=/etc/apt/keyrings/acli-archive-keyring.asc
-
-  mkdir -p /etc/apt/keyrings || return 1
-  curl -fsSL https://acli.atlassian.com/gpg/public-key.asc -o "${keyring}" || return 1
-  chmod 644 "${keyring}" || return 1
-  echo "deb [arch=amd64 signed-by=${keyring}] https://acli.atlassian.com/linux/deb stable main" \
-    > /etc/apt/sources.list.d/acli.list || return 1
-  chmod 644 /etc/apt/sources.list.d/acli.list
-}
-
 # Google Cloud: one repository for every gcloud package, base and components
 # alike — the deb ships with the component manager disabled, so a component is
 # an ordinary apt package from here. The armoured key is used as-is for the same
@@ -363,7 +345,6 @@ if [ ${#apt_pkgs[@]} -gt 0 ]; then
       # vendor at all: an empty vendor would be indistinguishable from a vendor
       # someone forgot to write, and the arm below is meant to catch that.
       ubuntu) ;;
-      atlassian) run_step "repository setup: atlassian" setup_repo_atlassian ;;
       *)
         echo "environment.sh: no repository setup for vendor: ${repo}" >&2
         FAILED_STEPS+=("repository setup: ${repo}")
@@ -1099,16 +1080,13 @@ verify_version() {
 }
 
 # verify_runs <tool> <command...>
-# One row for a tool whose printed version is not comparable to a pin. Two kinds
-# of tool land here: an add-on, which reports the version of what it plugs into
-# rather than the apt version it was installed at, and acli, which has no pin to
-# compare with at all — inventing one against a moving upstream would turn any
-# acli release into a session-blocking failure for every environment that
-# requested it. Exit zero and non-empty output is the whole assertion; for the
-# add-on, which build landed is already guaranteed by the pin on the package.
-# Invoking still catches the failure that matters here — a build that installed
-# but will not start. The row carries the first line of what the tool printed,
-# so it stays one line like every other.
+# One row for a tool whose printed version is not comparable to a pin: an
+# add-on, which reports the version of what it plugs into rather than the apt
+# version it was installed at. Exit zero and non-empty output is the whole
+# assertion; which build landed is already guaranteed by the pin on the
+# package. Invoking still catches the failure that matters here — a build that
+# installed but will not start. The row carries the first line of what the tool
+# printed, so it stays one line like every other.
 verify_runs() {
   local tool=$1 actual
   shift
@@ -1230,7 +1208,6 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
     kubectl)                verify_version kubectl "v${KUBECTL_VERSION%%-*}" kubectl_reported_version ;;
     snow)                   verify_version snow "${SNOW_VERSION}" snow_reported_version ;;
     prefect)                verify_version prefect "${PREFECT_VERSION}" prefect --version ;;
-    acli)                   verify_runs acli acli --version ;;
     # twg prints the bare version and nothing else, so the pin is compared as
     # the lockfile writes it and no reader function is needed.
     twg)                    verify_version twg "${TWG_VERSION}" twg --version ;;
