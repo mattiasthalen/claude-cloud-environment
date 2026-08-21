@@ -19,9 +19,7 @@ assert_output_contains "twg"
 assert_output_contains "gcloud"
 assert_output_contains "kubelogin"
 
-if printf '%s\n%s\n' "${HARNESS_STDOUT}" "${HARNESS_STDERR}" | grep -qF -- "==> "; then
-  harness_fail "expected validation to fail before any step ran"
-fi
+assert_no_steps_ran
 
 printf '%s\n' "${HARNESS_TOOLS}" | grep -q '^acli ' &&
   harness_fail "expected no acli on PATH after a failed validation, found: ${HARNESS_TOOLS}"

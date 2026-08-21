@@ -18,9 +18,7 @@ assert_output_contains "prefect"
 assert_output_contains "twg"
 assert_output_contains "kubelogin"
 
-if printf '%s\n%s\n' "${HARNESS_STDOUT}" "${HARNESS_STDERR}" | grep -qF -- "==> "; then
-  harness_fail "expected validation to fail before any step ran"
-fi
+assert_no_steps_ran
 
 [ -z "${HARNESS_SETTINGS}" ] ||
   harness_fail "expected a failed validation to leave no settings.json"
