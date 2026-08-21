@@ -31,8 +31,7 @@ printf '%s\n' "${HARNESS_TOOLS}" | grep -qx "twg /usr/local/bin/twg" ||
   harness_fail "expected twg on PATH at /usr/local/bin/twg, found: ${HARNESS_TOOLS:-<none>}"
 
 # A vendor download host is not an apt vendor: a selection of twg alone
-# configures no repository and runs no apt at all — in particular not the
-# Atlassian repository that acli beside it would have set up.
+# configures no repository and runs no apt at all.
 assert_output_lacks "==> repository setup"
 assert_output_lacks "==> apt-get update"
 assert_output_lacks "==> apt-get install"

@@ -1,11 +1,12 @@
 name: tests (full suite)
 
 # Every case, including the vendor tier: the selections that install real CLIs
-# from the Microsoft, Google Cloud, Kubernetes, PyPI and Atlassian repositories.
-# az alone is a 636 MB install and gcloud 883 MB, and the run depends on five
-# external services staying up — which is why this is a schedule rather than a
-# pull-request check. A red run here means either a case regressed or a vendor
-# moved; both are worth knowing about, neither should block an unrelated change.
+# from the Microsoft, Google Cloud, Kubernetes and PyPI repositories, plus a
+# handful of vendors' own download hosts. az alone is a 636 MB install and
+# gcloud 883 MB, and the run depends on several external services staying up —
+# which is why this is a schedule rather than a pull-request check. A red run
+# here means either a case regressed or a vendor moved; both are worth knowing
+# about, neither should block an unrelated change.
 on:
   schedule:
     # 04:17 UTC daily. Off the hour, because the hour is when every other cron

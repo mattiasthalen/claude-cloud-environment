@@ -99,16 +99,16 @@ line and `--tier` selects on it.
 | Tier | What is in it | Where it runs |
 | --- | --- | --- |
 | `quick` | Cases that install no CLI: validation failures, the collected-failure paths, the settings shape, the shipped skill. Seconds once the base image is built, and dependent on nothing beyond Docker Hub and `registry.npmjs.org`. | `.github/workflows/tests.yml`, on `pull_request` — **this is the tier that gates a PR**. |
-| `vendor` | The selections that install real CLIs, so the run exercises the Microsoft, Google Cloud, Kubernetes, PyPI and Atlassian repositories. `az` alone is a 636 MB install and `gcloud` 883 MB. | `.github/workflows/tests-full.yml`, which runs the **whole** suite on a daily `schedule` and on `workflow_dispatch`. |
+| `vendor` | The selections that install real CLIs, so the run exercises the Microsoft, Google Cloud, Kubernetes and PyPI repositories, plus a handful of vendors' own download hosts. `az` alone is a 636 MB install and `gcloud` 883 MB. | `.github/workflows/tests-full.yml`, which runs the **whole** suite on a daily `schedule` and on `workflow_dispatch`. |
 
 The `quick` tier on the pull request is the gate a change written in a hosted
 session must clear, whether or not the author also ran it locally: a local run
 sits behind an anonymous Docker Hub limit and a proxy that cuts large downloads,
 so it can be unavailable for reasons that have nothing to do with the change.
 
-The split is about blast radius as much as cost: the vendor tier depends on five
-external services staying up, and wiring it to `pull_request` would turn an
-upstream hiccup into a red check on an unrelated change.
+The split is about blast radius as much as cost: the vendor tier depends on
+several external services staying up, and wiring it to `pull_request` would
+turn an upstream hiccup into a red check on an unrelated change.
 
 The tier lives in the case file rather than in a list inside a workflow, which
 would drift the first time someone added a case. A case that declares no tier
