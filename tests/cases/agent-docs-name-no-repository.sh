@@ -3,7 +3,7 @@
 # working in, and #89 makes them shipped artifacts rather than files a repo
 # keeps. Either way a repository named in one of them is wrong everywhere else,
 # so this pins the rule they are written to: the tracker doc says to infer the
-# repository from the git remote, and neither it nor domain.md names one.
+# repository from the git remote, and none of the three names one.
 #
 # It runs no container — it is a drift guard over a doc, so what it reads is the
 # working tree (see docs/agents/testing.md, "What the tests are allowed to
@@ -12,8 +12,12 @@
 # tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
+# Every doc environment.sh ships, since story 11 of #86 covers them as a set:
+# a repository named in any one of them is wrong everywhere else, and the one
+# left unguarded is the one that drifts.
 docs=(
   "${REPO_ROOT}/docs/agents/issue-tracker.md"
+  "${REPO_ROOT}/docs/agents/triage-labels.md"
   "${REPO_ROOT}/docs/agents/domain.md"
 )
 
