@@ -11,36 +11,14 @@
 # tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
-harness_pre <<'PRE'
-# Shadow the harness curl, which would otherwise serve the docs. The shim is
-# kept aside first and everything that is not a docs fetch is handed straight
-# back to it, so this case fails the docs fetch and nothing else — the swarm
-# skill still lands from its tag-pinned URL, which is what makes the recap
-# count below a statement about one breakage.
-#
-# The stub writes the partial file curl itself would leave behind on a broken
-# transfer, so the case tests the cleanup rather than curl's absence.
-cp /usr/local/bin/curl /usr/local/bin/harness-curl-shim
-cat > /usr/local/bin/curl <<'STUB'
-#!/bin/bash
-args=("$@")
-for i in "${!args[@]}"; do
-  case "${args[$i]}" in
-    */docs/agents/*)
-      for j in "${!args[@]}"; do
-        if [ "${args[$j]}" = "-o" ]; then
-          printf 'half a doc' > "${args[$((j + 1))]}"
-        fi
-      done
-      echo "curl: (18) transfer closed with outstanding read data remaining" >&2
-      exit 18
-      ;;
-  esac
-done
-exec /usr/local/bin/harness-curl-shim "$@"
-STUB
-chmod +x /usr/local/bin/curl
-PRE
+# Fail the docs fetch and nothing else: the swarm skill still lands from its
+# tag-pinned URL, which is what makes the recap count below a statement about
+# one breakage. The partial text is the truncated file curl itself would leave
+# behind, so the case tests the cleanup rather than curl's absence. The
+# scaffolding lives in tests/lib.sh (see docs/agents/testing.md).
+harness_pre_curl_fails '*/docs/agents/*' 18 \
+  'curl: (18) transfer closed with outstanding read data remaining' \
+  'half a doc'
 
 harness_run
 

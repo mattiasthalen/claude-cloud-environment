@@ -176,6 +176,7 @@ From `tests/lib.sh`:
 | --- | --- |
 | `harness_run [args...]` | Run the script with that argument list in a fresh container. |
 | `harness_pre <<'PRE' … PRE` | Snippet run in the container before the script, to arrange starting state. Call before `harness_run`. |
+| `harness_pre_curl_fails <glob> <code> <message> [partial]` | The one starting state more than one case wants: a `curl` that fails only the fetches matching `<glob>` and hands everything else back to the harness shim. `[partial]` writes that text to the fetch's `-o` target first, for a case about the cleanup after a broken transfer. Calls `harness_pre`, so the two are alternatives. |
 | `harness_script_version` | `SCRIPT_VERSION` read from the script, so a bump needs no case edits. |
 | `harness_pin <VARIABLE>` | A pin read from the lockfile block, so a version roll needs no case edits. |
 | `harness_pkg_version <package>` | The apt version dpkg reports for a package in the container, empty when it is not installed — the binary on PATH does not say which repository it came from. |
@@ -251,7 +252,11 @@ to fail shadows it again — `swarm-skill-fetch-failure-is-not-fatal` and
 fetch it is about and hands everything else back, so its recap count stays a
 statement about one breakage: it copies the shim aside as
 `/usr/local/bin/harness-curl-shim` first and `exec`s that for every URL it is
-not shadowing, rather than reaching past the shim to the real `curl`.
+not shadowing, rather than reaching past the shim to the real `curl`. That
+scaffolding is `harness_pre_curl_fails` in `tests/lib.sh` rather than a snippet
+per case — the two cases that want it were written in different layers and each
+carried its own copy, and the next shipped artifact would have brought a
+third.
 
 Keep cases cheap. Failure-path cases are the cheap majority because validation
 failures exit before any install work happens; expensive selections run once.

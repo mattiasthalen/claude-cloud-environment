@@ -10,27 +10,11 @@
 # tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
-harness_pre <<'PRE'
-# Shadow the harness curl, which would otherwise serve the skill. The shim is
-# kept aside first and everything that is not a skill file is handed straight
-# back to it, so this case fails the skill fetch and nothing else — the other
-# artifacts the script ships still land from their tag-pinned URLs, which is
-# what makes the recap count below a statement about one breakage.
-cp /usr/local/bin/curl /usr/local/bin/harness-curl-shim
-cat > /usr/local/bin/curl <<'STUB'
-#!/bin/bash
-for arg in "$@"; do
-  case "${arg}" in
-    *SKILL.md)
-      echo "curl: (22) The requested URL returned error: 404" >&2
-      exit 22
-      ;;
-  esac
-done
-exec /usr/local/bin/harness-curl-shim "$@"
-STUB
-chmod +x /usr/local/bin/curl
-PRE
+# Fail the skill fetch and nothing else: the other tag-pinned artifacts still
+# land, which is what makes the recap count below a statement about one
+# breakage. The scaffolding lives in tests/lib.sh (see docs/agents/testing.md).
+harness_pre_curl_fails '*SKILL.md' 22 \
+  'curl: (22) The requested URL returned error: 404'
 
 harness_run
 
