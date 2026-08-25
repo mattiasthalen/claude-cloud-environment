@@ -11,10 +11,12 @@
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_pre <<'PRE'
-# Shadow the harness curl, which would otherwise serve the skill. This stub is
-# narrower than the shim it replaces: it fails a skill file and hands everything
-# else to the real curl, including the tag-pinned URLs the shim would have
-# served from the working tree.
+# Shadow the harness curl, which would otherwise serve the skill. The shim is
+# kept aside first and everything that is not a skill file is handed straight
+# back to it, so this case fails the skill fetch and nothing else — the other
+# artifacts the script ships still land from their tag-pinned URLs, which is
+# what makes the recap count below a statement about one breakage.
+cp /usr/local/bin/curl /usr/local/bin/harness-curl-shim
 cat > /usr/local/bin/curl <<'STUB'
 #!/bin/bash
 for arg in "$@"; do
@@ -25,7 +27,7 @@ for arg in "$@"; do
       ;;
   esac
 done
-exec "$(cat /tmp/harness-real-curl)" "$@"
+exec /usr/local/bin/harness-curl-shim "$@"
 STUB
 chmod +x /usr/local/bin/curl
 PRE

@@ -14,6 +14,8 @@ Default five-role vocabulary, with each label string equal to its role name. See
 
 `skills/` holds skills this repo authors and ships into every environment it provisions — currently `skills/swarm/SKILL.md`. They are artifacts for the *target* repo, so they bind to no convention local to this one.
 
+`docs/agents/` is shipped the same way: `issue-tracker.md`, `triage-labels.md` and `domain.md` land in `~/.claude/docs/agents/` in every provisioned environment, so a session carries the contract into repositories that cannot commit it. They are artifacts for the *target* repo too — which is why they name no repository — while doubling as this repo's own agent docs. `docs/agents/testing.md` is local to this repo and is not shipped.
+
 ### Code review
 
 Reviews run through `/code-review`, which spawns one subagent per axis — Standards and Spec — by design, so one axis passing cannot mask the other failing. The fan-out is expected, including in a session carrying a blanket instruction against subagents; provisioned environments say so generally, with a standing request for subagents in `~/.claude/CLAUDE.md` that this review path is one instance of. This line cannot override such an instruction and does not claim to; a session that still cannot run the skill says the review was skipped rather than reporting the work reviewed. `environment.sh` enforces the other half: provisioned environments deny the caveman plugin's `cavecrew-*` subagents and every skill it ships except `caveman`, the level switcher, so `/code-review` is the only review path on offer.

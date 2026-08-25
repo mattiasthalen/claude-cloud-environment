@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_VERSION=2.0.0
+SCRIPT_VERSION=2.1.0
 
 # Lockfile. Every version this script installs is pinned here and nowhere else,
 # so a version roll is one reviewed diff hunk rather than a hunt through
@@ -836,7 +836,8 @@ run_step "suppress caveman statusline nudge" \
 # environment, including the CLIs the box actually asked for.
 # ---------------------------------------------------------------------------
 
-SKILLS_URL="https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v${SCRIPT_VERSION}/skills"
+TAG_URL="https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment/refs/tags/v${SCRIPT_VERSION}"
+SKILLS_URL="${TAG_URL}/skills"
 SWARM_SKILL=~/.claude/skills/swarm/SKILL.md
 
 install_swarm_skill() {
@@ -859,6 +860,58 @@ skill_failures_before=${#FAILED_STEPS[@]}
 run_step "install swarm skill" install_swarm_skill
 if [ ${#FAILED_STEPS[@]} -ne "${skill_failures_before}" ]; then
   swarm_skill_install_failed=1
+fi
+
+# ---------------------------------------------------------------------------
+# Agent docs this repo ships.
+#
+# The docs are the contract a session follows — which issue tracker to reach and
+# how, the triage vocabulary, where domain knowledge lives. They ship into
+# `~/.claude/docs/agents/` so a session gets them in repositories that cannot
+# commit them, and they are written to name no repository for exactly that
+# reason.
+#
+# Fetched from the same tag-pinned base the swarm skill uses, and for the same
+# reason: a box pinned to a tag keeps the docs that tag shipped and can never
+# silently pull a newer set.
+#
+# Always installed, and deliberately not a name the argument parser accepts, on
+# the same grounds as the skill: that surface is for CLIs, which are heavy and
+# per-environment, and a Markdown file is neither.
+#
+# One step for all three, so a fetch fault is one line in the recap rather than
+# a per-file list of the same breakage.
+# ---------------------------------------------------------------------------
+
+AGENT_DOCS_URL="${TAG_URL}/docs/agents"
+AGENT_DOCS_DIR=~/.claude/docs/agents
+AGENT_DOCS=(issue-tracker.md triage-labels.md domain.md)
+
+install_agent_docs() {
+  mkdir -p "${AGENT_DOCS_DIR}" || return 1
+
+  local doc status=0
+  for doc in "${AGENT_DOCS[@]}"; do
+    if curl -fsSL "${AGENT_DOCS_URL}/${doc}" -o "${AGENT_DOCS_DIR}/${doc}"; then
+      continue
+    fi
+
+    # curl leaves the output file behind on a failed transfer, and a truncated
+    # doc would verify as present. Removing it keeps absence honest.
+    rm -f "${AGENT_DOCS_DIR}/${doc}"
+    status=1
+  done
+
+  return "${status}"
+}
+
+# Tracked for the same reason the skill install is: docs whose fetch failed
+# still get their verification row, but the recap names the breakage once.
+agent_docs_install_failed=0
+docs_failures_before=${#FAILED_STEPS[@]}
+run_step "install agent docs" install_agent_docs
+if [ ${#FAILED_STEPS[@]} -ne "${docs_failures_before}" ]; then
+  agent_docs_install_failed=1
 fi
 
 # Lean Claude Code — written LAST.
@@ -1190,6 +1243,28 @@ verify_swarm_skill() {
   fi
 }
 
+# The shipped docs have no version to report either, so a non-empty file per doc
+# is the whole check. One row covers the set — the step that fetches them is one
+# step — and a fetch that already failed is not counted twice.
+verify_agent_docs() {
+  local doc
+  local missing=()
+
+  for doc in ${AGENT_DOCS[@]+"${AGENT_DOCS[@]}"}; do
+    [ -s "${AGENT_DOCS_DIR}/${doc}" ] || missing+=("${doc}")
+  done
+
+  if [ ${#missing[@]} -eq 0 ]; then
+    echo "✓ agent docs"
+    return 0
+  fi
+
+  echo "✗ agent docs missing or empty: ${missing[*]}"
+  if [ "${agent_docs_install_failed}" -eq 0 ]; then
+    FAILED_STEPS+=("verify agent docs")
+  fi
+}
+
 if [ ${#requested_tools[@]} -eq 0 ]; then
   echo "✓ no tools requested"
 fi
@@ -1223,6 +1298,7 @@ for tool in ${requested_tools[@]+"${requested_tools[@]}"}; do
 done
 
 verify_swarm_skill
+verify_agent_docs
 verify_settings
 
 report_failures
