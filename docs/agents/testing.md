@@ -231,13 +231,6 @@ asserted by behaviour rather than by reading the script. Every URL outside the
 raw base — every pinned CLI download among them — goes to the real `curl`
 untouched.
 
-That paragraph and the one above it are the whole shim contract, and they are
-the only statement of it. The two tag-pin cases —
-`swarm-skill-installs-at-tag-pin` and `agent-docs-install-at-tag-pin` — point
-here rather than restating it: they were written a stack apart, and while each
-carried its own description of the shim they drifted into describing it in words
-that no longer agreed.
-
 None of those three branches has a case of its own. A case invokes
 `environment.sh` and asserts on what the script did, so the shim is exercised
 only through a step that fetches — `swarm-skill-installs-at-tag-pin` and
@@ -245,6 +238,13 @@ only through a step that fetches — `swarm-skill-installs-at-tag-pin` and
 a fetch of its own in `harness_pre` would be asserting on the harness rather
 than on the script. The next artifact the release ships brings a step, and the
 step brings the case.
+
+The two paragraphs at the head of this section — what the shim serves, and what
+it refuses — are the whole shim contract, and they are the only statement of it.
+The two tag-pin cases — `swarm-skill-installs-at-tag-pin` and
+`agent-docs-install-at-tag-pin` — point here rather than restating it: they were
+written a stack apart, and while each carried its own description of the shim
+they drifted into describing it in words that no longer agreed.
 
 The shim is installed before `harness_pre` runs, so a case that needs one fetch
 to fail shadows it again — `swarm-skill-fetch-failure-is-not-fatal` and
