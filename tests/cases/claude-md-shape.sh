@@ -3,8 +3,8 @@
 # session depends on: the caveman mode it answers in, the standing request for
 # subagents, the note that `/code-review` fans out to a subagent per axis by
 # design, the instruction to end a turn with an unsettled question in prose, and
-# which copy of each agent doc a session is acting on. The file's contents are the
-# contract, the same way settings.json's shape is.
+# which copy of each agent doc a session is acting on. The file's contents are
+# the contract, the same way settings.json's shape is.
 #
 # The review line is asserted because it exists to survive a session that would
 # otherwise route around the skill — a line that silently stopped being written
@@ -34,11 +34,16 @@
 # `~/.claude/docs/agents/<file>`, per file — which is what stops a session that
 # found one copy from assuming it found the only one. The second half is the
 # summary a session holds when it opens neither copy: that the tracker is
-# GitHub, and the five canonical triage labels. A bullet that kept the rule and
-# lost the summary would send every session to a file for two facts it should
-# already have; one that kept the summary and lost the rule would let a session
-# act on the shipped defaults in a repo that overrode them. Neither half is
-# worth much without the other, so a trim of either fails here.
+# GitHub, and the five canonical triage labels, each equal to its role name. A
+# bullet that kept the rule and lost the summary would send every session to a
+# file for two facts it should already have; one that kept the summary and lost
+# the rule would let a session act on the shipped defaults in a repo that
+# overrode them. Neither half is worth much without the other, so a trim of
+# either fails here.
+#
+# The label strings are pinned here verbatim, so this file is a site a rename
+# has to visit. `docs/agents/triage-labels.md` lists every such site below its
+# table, so a renamer starting at the source table finds this one.
 # tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 

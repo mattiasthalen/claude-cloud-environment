@@ -13,3 +13,5 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
 Edit the right-hand column to match whatever vocabulary you actually use.
+
+This table is the place to rename a label, but three other sites name a string from it and have to be visited in the same edit: the **Ready for work** bullet in `issue-tracker.md`, the agent-docs bullet in the `~/.claude/CLAUDE.md` heredoc in `environment.sh`, and the fixed-string assertion in `tests/cases/claude-md-shape.sh` that pins that bullet.
