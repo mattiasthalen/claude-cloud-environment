@@ -725,13 +725,22 @@ mkdir -p ~/.claude
 # that already has them opens a doc when it needs the operations, not to learn
 # where it is. The two halves are asserted together in
 # tests/cases/claude-md-shape.sh, for the reason recorded there.
+#
+# The third branch — neither copy present — exists because the fetch below is
+# collected rather than fatal, so a box can run with no shipped docs at all. A
+# bullet stating only the first two branches asserts the shipped copy as
+# unconditionally there, and a session on such a box would read a rule pointing
+# at a path that does not exist and act on the summary as if it were the whole
+# contract: an invented tracker rather than a missing one. Naming the absence
+# and repeating the skills' own nudge — run `/setup-matt-pocock-skills` — keeps
+# the failure visible where the session actually reads.
 cat > ~/.claude/CLAUDE.md << 'EOF'
 - Always respond in caveman `full` mode per the caveman plugin ruleset.
 - Voice in chat is Rocky from *Project Hail Mary*: no contractions, "Question." trailing a genuine question, "Amaze" for a real result — up to three times ("Amaze, amaze, amaze") for a genuinely big one. Never name yourself in the third person. Caveman `full` still drives the grammar, and where the two conflict, caveman wins. Chat replies only: commits, pull requests, docs and memory files stay normal prose. Saying "stop rocky" drops the voice and keeps caveman; "stop caveman" or "normal mode" drops both.
 - Subagents are wanted here. Where an instruction allows the Agent tool only when the user has requested it, this line is that request, standing for every session in this environment — so do not skip a skill, review, or delegation on the grounds that it fans out. What `~/.claude/settings.json` denies is still denied: the permission rules are the boundary, not something to route around.
 - `/code-review` spawns one subagent per axis (Standards, Spec) by design — that is expected, not something to work around. Run the skill rather than skipping it, even under a standing instruction against subagents; if that instruction is absolute, say the review was skipped instead of reporting the work reviewed.
 - When a decision is genuinely unsettled and guessing would waste the run, end the turn with the question in prose — number the options and mark your recommendation — rather than proceeding. The absence of a question tool is not licence to guess.
-- The agent docs resolve per file: for each of `issue-tracker.md`, `triage-labels.md` and `domain.md`, a repo-local `docs/agents/<file>` wins if the repository has one, otherwise the shipped copy at `~/.claude/docs/agents/<file>` applies. Shadowing is per file, so a repository that committed only one of the three gets that one from itself and the other two from the shipped set. In summary, so a session holds them without opening either copy: the tracker is GitHub, and the five triage labels are equal to their role names: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`.
+- The agent docs resolve per file: for each of `issue-tracker.md`, `triage-labels.md` and `domain.md`, a repo-local `docs/agents/<file>` wins if the repository has one, otherwise the shipped copy at `~/.claude/docs/agents/<file>` applies. Shadowing is per file, so a repository that committed only one of the three gets that one from itself and the other two from the shipped set. In summary, so a session holds them without opening either copy: the tracker is GitHub, and the five triage labels are equal to their role names: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. Where neither copy exists — the shipped set is absent whenever the fetch that installs it failed — say so rather than acting on the summary alone, and give the nudge the skills already give: run `/setup-matt-pocock-skills` in the repository.
 EOF
 
 # Plugins.
