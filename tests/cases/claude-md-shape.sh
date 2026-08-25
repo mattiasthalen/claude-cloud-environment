@@ -51,8 +51,9 @@
 # failed. See story 16 of #86.
 #
 # The label strings are pinned here verbatim, so this file is a site a rename
-# has to visit. `docs/agents/triage-labels.md` lists every such site below its
-# table, so a renamer starting at the source table finds this one.
+# has to visit. The source table in `docs/agents/triage-labels.md` ships into
+# repositories that have no such file, so it cannot list this site; `AGENTS.md`
+# does, under "Renaming something the shipped set names".
 # tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 

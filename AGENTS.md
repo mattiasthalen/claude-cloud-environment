@@ -16,6 +16,14 @@ Default five-role vocabulary, with each label string equal to its role name. See
 
 The shipped docs are a shadowed default, resolved per file: a repo-local `docs/agents/<file>` wins where the repository has one, and the shipped copy applies only where it does not, so a repository holding one of the three takes the other two from the shipped set. `~/.claude/CLAUDE.md` states that rule to every provisioned session, since neither copy can say which is in force. See `docs/adr/0011-the-shipped-agent-docs-are-a-shadowed-default.md`.
 
+### Renaming something the shipped set names
+
+Two clumps of strings are hardcoded across this repo, and neither source file can list the sites that live here — the docs ship into repositories that have none of them, so the list belongs in this file, which is not shipped.
+
+**A triage label string.** `docs/agents/triage-labels.md` is the source table, and the **Ready for work** bullet in `docs/agents/issue-tracker.md` is the other shipped site it names. This repo adds two of its own: the agent-docs bullet in the `~/.claude/CLAUDE.md` heredoc in `environment.sh`, and the fixed-string assertion in `tests/cases/claude-md-shape.sh` that pins that bullet.
+
+**One of the three shipped doc filenames** — `issue-tracker.md`, `triage-labels.md`, `domain.md`. A rename visits the file itself under `docs/agents/`, plus: the `AGENT_DOCS` array and the agent-docs bullet in `environment.sh`; `tests/cases/agent-docs-install-at-tag-pin.sh`, `tests/cases/agent-docs-fetch-failure-is-not-fatal.sh` and `tests/cases/agent-docs-name-no-repository.sh`; the "Skills and agent docs" section of `README.md`; the shipped-artifacts paragraph above; and `docs/adr/0011-the-shipped-agent-docs-are-a-shadowed-default.md`. `issue-tracker.md` carries two more, where it is named as a path in the *target* repo: `skills/swarm/SKILL.md` and `docs/adr/0003-a-swarm-run-ships-a-stack-of-pull-requests.md`.
+
 ### Code review
 
 Reviews run through `/code-review`, which spawns one subagent per axis — Standards and Spec — by design, so one axis passing cannot mask the other failing. The fan-out is expected, including in a session carrying a blanket instruction against subagents; provisioned environments say so generally, with a standing request for subagents in `~/.claude/CLAUDE.md` that this review path is one instance of. This line cannot override such an instruction and does not claim to; a session that still cannot run the skill says the review was skipped rather than reporting the work reviewed. `environment.sh` enforces the other half: provisioned environments deny the caveman plugin's `cavecrew-*` subagents and every skill it ships except `caveman`, the level switcher, so `/code-review` is the only review path on offer.
@@ -26,4 +34,4 @@ Reviews run through `/code-review`, which spawns one subagent per axis — Stand
 
 ### Domain docs
 
-Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+`CONTEXT.md` and `docs/adr/` at the repo root, and no `CONTEXT-MAP.md`. `docs/agents/domain.md` carries the consumer rules — how to read those files where they exist — and mandates no layout, so the layout above is this repo's own statement rather than a taxonomy that doc defines.
