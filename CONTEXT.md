@@ -102,6 +102,14 @@ _Avoid_: override, exemption, blanket permission
 The character layer a provisioned session answers in, sitting on top of the caveman response style rather than beside it: it supplies vocabulary and tics, the caveman ruleset supplies the grammar, and caveman wins wherever the two disagree. Confined to chat, so nothing persisted carries it.
 _Avoid_: persona, tone, style — *style* is the caveman layer underneath, which the voice never replaces.
 
+**Shipped agent docs**:
+The copy of this repo's `docs/agents/` contract files that `environment.sh` installs into `~/.claude/docs/agents/` at the tag it was itself fetched from, so a session carries the contract into repositories that keep no copy of their own.
+_Avoid_: global docs, user-level docs, default docs
+
+**Shadowing**:
+The rule by which a repository's own `docs/agents/<file>` takes precedence over the shipped copy of that file. It holds per file, not per set, so a repository that keeps one of the three supplies that one and takes the rest from the shipped set.
+_Avoid_: override, fallback — *override* names the reverse relation, which never happens here: a shipped copy does not displace a repo-local one.
+
 **Session shell**:
 A shell a session's own tooling starts, as opposed to one `environment.sh` starts. Login and interactive non-login session shells read different startup files, so anything written for them has to name both.
 _Avoid_: user shell, terminal
