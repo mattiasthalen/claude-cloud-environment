@@ -22,6 +22,7 @@ HARNESS_CLAUDE_MD=""
 HARNESS_INSTALLED_PLUGINS=""
 HARNESS_TOOLS=""
 HARNESS_SKILLS=""
+HARNESS_AGENT_DOCS=""
 HARNESS_PACKAGES=""
 HARNESS_GITCONFIG_SYSTEM=""
 HARNESS_LFS_BLOB=""
@@ -107,7 +108,7 @@ harness_run() {
 
   mounts=(
     -v "${REPO_ROOT}/environment.sh:/harness/environment.sh:ro"
-    -v "${REPO_ROOT}/skills:/harness/skills:ro"
+    -v "${REPO_ROOT}:/harness/repo:ro"
     -v "${HARNESS_DIR}/container/run-case.sh:/harness/run-case.sh:ro"
     -v "${out}:/out"
   )
@@ -149,6 +150,10 @@ harness_run() {
   HARNESS_SKILLS=""
   if [ -f "${out}/skills" ]; then
     HARNESS_SKILLS=$(cat "${out}/skills")
+  fi
+  HARNESS_AGENT_DOCS=""
+  if [ -f "${out}/agent-docs" ]; then
+    HARNESS_AGENT_DOCS=$(cat "${out}/agent-docs")
   fi
   HARNESS_PACKAGES=""
   if [ -f "${out}/packages" ]; then
@@ -280,6 +285,27 @@ assert_skill_absent() {
   local skill=$1
   printf '%s\n' "${HARNESS_SKILLS}" | grep -q "^${skill} " &&
     harness_fail "expected no '${skill}' skill after the run, found: ${HARNESS_SKILLS}"
+  return 0
+}
+
+# assert_agent_doc_installed <name>
+# A non-empty agent doc of that name the run left under ~/.claude/docs/agents/.
+# Presence in the container is a different claim from the script's own
+# verification row, and a doc fetched from the release tag is only reachable
+# through the tag-pinned URL — the harness curl refuses any other URL under the
+# raw base (see tests/container/run-case.sh).
+assert_agent_doc_installed() {
+  local doc=$1
+  printf '%s\n' "${HARNESS_AGENT_DOCS}" | grep -q "^${doc} " ||
+    harness_fail "expected the agent doc '${doc}' present and non-empty after the run, found: ${HARNESS_AGENT_DOCS:-<none>}"
+}
+
+# assert_agent_doc_absent <name>
+# The negation, for a run whose fetch was arranged to fail.
+assert_agent_doc_absent() {
+  local doc=$1
+  printf '%s\n' "${HARNESS_AGENT_DOCS}" | grep -q "^${doc} " &&
+    harness_fail "expected no agent doc '${doc}' after the run, found: ${HARNESS_AGENT_DOCS}"
   return 0
 }
 

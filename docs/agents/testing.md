@@ -177,6 +177,8 @@ From `tests/lib.sh`:
 | `assert_tool_on_path <binary>` | The binary is on PATH in the container after the run. |
 | `assert_skill_installed <name>` | A non-empty `~/.claude/skills/<name>/SKILL.md` after the run. |
 | `assert_skill_absent <name>` | The negation, for a run whose fetch was arranged to fail. |
+| `assert_agent_doc_installed <name>` | A present and non-empty `~/.claude/docs/agents/<name>` after the run. |
+| `assert_agent_doc_absent <name>` | The negation, for a run whose fetch was arranged to fail. |
 | `assert_settings_jq <filter> <expected>` | Run a `jq` filter over the `settings.json` the run left behind; fails if it is missing or does not parse. |
 | `assert_claude_md_contains <text>` | Fixed-string match over the `~/.claude/CLAUDE.md` the run wrote; fails if the file is missing. |
 | `assert_claude_dotfile <name>` | A dotfile of that exact name directly under `~/.claude` after the run — for markers whose existence is their whole content. |
@@ -185,8 +187,8 @@ From `tests/lib.sh`:
 
 After `harness_run`, `HARNESS_STATUS`, `HARNESS_STDOUT`, `HARNESS_STDERR`,
 `HARNESS_SETTINGS`, `HARNESS_CLAUDE_MD`, `HARNESS_CLAUDE_DOTFILES`,
-`HARNESS_INSTALLED_PLUGINS`, `HARNESS_TOOLS`, `HARNESS_SKILLS` and
-`HARNESS_PACKAGES` hold the raw result if a case needs something the assertions
+`HARNESS_INSTALLED_PLUGINS`, `HARNESS_TOOLS`, `HARNESS_SKILLS`,
+`HARNESS_AGENT_DOCS` and `HARNESS_PACKAGES` hold the raw result if a case needs something the assertions
 above do not cover. Every assertion failure prints the case name, the
 invocation, the exit code and the script's stdout and stderr.
 
@@ -196,16 +198,32 @@ what the run left behind into `/out`, and never asserts.
 
 ## The release-tag stand-in
 
-`environment.sh` fetches the skills it ships from its own release tag, and a
-working tree is by definition unreleased: the tag its `SCRIPT_VERSION` names
-does not exist on GitHub while the change is being written, so that fetch could
-only ever 404 in a container. `tests/container/run-case.sh` shadows `curl` with
-a shim that stands in for the tag the release will cut, serving the working
-tree's own `skills/` — mounted read-only at `/harness/skills` — for exactly the
-tag-pinned URL and refusing any other URL for a skill file rather than passing
-it to the network, where a branch ref would succeed. So a case that sees a skill
-land has thereby seen the pinned URL. Everything that is not a skill file goes
-to the real `curl`.
+`environment.sh` fetches the artifacts it ships — the skills today, whatever
+else the release carries tomorrow — from its own release tag, and a working tree
+is by definition unreleased: the tag its `SCRIPT_VERSION` names does not exist
+on GitHub while the change is being written, so that fetch could only ever 404
+in a container. `tests/container/run-case.sh` shadows `curl` with a shim that
+stands in for the tag the release will cut, serving the working tree itself —
+mounted read-only at `/harness/repo` — for **any** path under the tag-pinned
+prefix. A case that arranges a fetch of a tag-pinned path gets the working
+tree's copy of that file back whether or not it lives under `skills/`, so a step
+that starts shipping something else needs no harness change.
+
+What the shim refuses is the other half, and it is the half that makes a passing
+case evidence of anything. A URL under the same raw base at any **other** ref —
+a branch, another tag — exits non-zero rather than being passed to the network,
+where a branch ref would happily succeed and the file would land looking
+identical. Because the pinned ref is the only one that serves anything in here,
+a case that sees a file land has thereby seen the pinned URL, and the pin is
+asserted by behaviour rather than by reading the script. Every URL outside the
+raw base — every pinned CLI download among them — goes to the real `curl`
+untouched.
+
+Three cases pin those three branches directly: `tag-pinned-fetch-of-any-path-is-served`,
+`untagged-fetch-under-the-raw-base-is-refused` and
+`fetch-outside-the-raw-base-reaches-real-curl`. The latter two stub the real
+`curl` to serve whatever it is asked for, so what they observe is the shim's own
+decision rather than what a host on the internet happened to answer.
 
 The shim is installed before `harness_pre` runs, so a case that needs the fetch
 to fail shadows it again — `swarm-skill-fetch-failure-is-not-fatal` does.
