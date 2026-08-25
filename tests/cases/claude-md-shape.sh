@@ -41,6 +41,15 @@
 # overrode them. Neither half is worth much without the other, so a trim of
 # either fails here.
 #
+# The third clause of the same bullet is the absence branch, and it is asserted
+# separately from the other two. The docs fetch is collected rather than fatal,
+# so a box can finish provisioning with no shipped docs at all; a bullet that
+# named only the two present-copy branches would tell such a session that the
+# shipped copy applies, and leave it acting on the summary as though that were
+# the contract. Pinning "say so" and the `/setup-matt-pocock-skills` nudge is
+# what makes a trim of the branch fail here rather than on a box whose fetch
+# failed. See story 16 of #86.
+#
 # The label strings are pinned here verbatim, so this file is a site a rename
 # has to visit. `docs/agents/triage-labels.md` lists every such site below its
 # table, so a renamer starting at the source table finds this one.
@@ -60,5 +69,8 @@ assert_claude_md_contains 'end the turn with the question in prose'
 assert_claude_md_contains 'a repo-local `docs/agents/<file>` wins if the repository has one'
 assert_claude_md_contains 'otherwise the shipped copy at `~/.claude/docs/agents/<file>` applies'
 assert_claude_md_contains 'Shadowing is per file'
+assert_claude_md_contains 'Where neither copy exists'
+assert_claude_md_contains 'say so rather than acting on the summary alone'
+assert_claude_md_contains 'run `/setup-matt-pocock-skills`'
 assert_claude_md_contains 'the tracker is GitHub'
 assert_claude_md_contains '`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`'
