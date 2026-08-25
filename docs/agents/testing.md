@@ -136,6 +136,16 @@ Cases do not assert on internal function names, accumulator contents, or the
 order of lines within a phase. All three are free to change without the contract
 changing.
 
+One shape sits outside that seam: a **drift guard** over a file this repo ships,
+which reads the working tree, asserts on what the file says, and starts no
+container. It lives in `tests/cases/` so that a tier gates it on the pull
+request like everything else, declares its tier the same way, and says in its
+header that it runs no container and why. It is still an assertion about a
+shipped artifact rather than about internals.
+`tests/cases/agent-docs-name-no-repository.sh` is the one of these. A check that
+is about the harness or the repo's own rules rather than about a shipped
+artifact stays a host-side `tests/<name>.test.sh`.
+
 `environment.sh` gets **no test-only flag, no dry-run mode and no extracted
 helper library**. It is one file piped into `bash` by four environments, and a
 test hook would be new surface on that line. A case that needs a different

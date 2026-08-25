@@ -6,6 +6,10 @@
 # gets no test-only flag, no dry-run mode and no extracted helper library — a
 # case that needs a different starting state arranges it in the container with
 # harness_pre, not in the script.
+#
+# A drift-guard case is the exception: it asserts on a file this repo ships and
+# starts no container. It sources this library for REPO_ROOT and harness_fail
+# only. See docs/agents/testing.md, "What the tests are allowed to assert on".
 
 set -uo pipefail
 

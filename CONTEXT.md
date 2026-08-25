@@ -18,7 +18,7 @@ _Avoid_: queue, ready set, next up
 A ticket swarm has dispatched an agent at and has not yet reviewed.
 
 **Parked**:
-A ticket an agent stopped on because a decision was genuinely unsettled. It carries the question as a comment and waits on a human.
+A ticket an agent stopped on because a decision was genuinely unsettled, or because it needs something only a human can supply — a credential for an operation, above all. It carries the question as a comment and waits on a human.
 _Avoid_: blocked, stuck, deferred — *blocked* is the distinct case of a ticket whose blocker is open.
 
 **Stack**:
