@@ -7,7 +7,7 @@ change.
 
 ## Before exploring, read these where they exist
 
-- **`CONTEXT.md`** at the repo root — the glossary and the domain's shape.
+- **`CONTEXT.md`** at the repo root.
 - **`CONTEXT-MAP.md`** at the repo root, where the repo has one: it points at a
   `CONTEXT.md` per context. Read each one relevant to the topic.
 - **`docs/adr/`** — read the ADRs that touch the area you are about to work in.

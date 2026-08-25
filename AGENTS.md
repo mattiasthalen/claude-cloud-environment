@@ -4,7 +4,7 @@
 
 ### Issue tracker
 
-Issues live in GitHub Issues on `mattiasthalen/claude-cloud-environment`, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues on `mattiasthalen/claude-cloud-environment` — the repository this line is about, and the one place naming it, since `AGENTS.md` is not shipped. Which surface reaches them is not settled here: `docs/agents/issue-tracker.md` carries the order (`gh` where it is on the PATH, the GitHub MCP tools, then authenticated REST or GraphQL) and is written to name no repository.
 
 ### Triage labels
 

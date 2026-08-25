@@ -35,9 +35,7 @@ for REST or GraphQL rather than concluding they are impossible:
   `https://api.github.com/graphql` with the same token; both take the pull
   request's `node_id`.
 - **Stack objects** — creating a stack of pull requests and adding a layer to
-  it. REST only; `/swarm` carries the calls it makes, and stacked pull requests
-  are in public preview, so a repository where the stack API does not answer is
-  a normal outcome rather than a fault.
+  it. REST only; `/swarm` carries the calls it makes.
 
 Endpoints are written out here only where they are already known to work. Where
 this doc names an operation without an endpoint, look the endpoint up rather
@@ -45,8 +43,10 @@ than inventing one that reads plausibly.
 
 ### When there is no credential for an operation
 
-An operation the session holds no usable credential for is **parked**, with the
-reason stated — the operation, the surface it needs, and what is missing. Do not
+Where the session holds no usable credential for an operation, the ticket is
+**parked** with the reason stated — the operation, the surface it needs, and
+what is missing — and waits on a human, exactly as a ticket parked on an
+unsettled decision does. Do not
 route around it with a substitute that records something different: a `Blocked
 by:` line written into a body is a documented fallback for a tracker without
 dependencies, not a stand-in for a dependency edge the session merely could not
