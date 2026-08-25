@@ -10,9 +10,11 @@ Issues live in GitHub Issues on `mattiasthalen/claude-cloud-environment` — the
 
 Default five-role vocabulary, with each label string equal to its role name. See `docs/agents/triage-labels.md`.
 
-### Skills shipped to provisioned environments
+### Artifacts shipped to provisioned environments
 
-`skills/` holds skills this repo authors and ships into every environment it provisions — currently `skills/swarm/SKILL.md`. They are artifacts for the *target* repo, so they bind to no convention local to this one.
+`skills/` holds skills this repo authors and ships into every environment it provisions — currently `skills/swarm/SKILL.md`. `environment.sh` also ships three of this repo's own agent docs — `docs/agents/issue-tracker.md`, `docs/agents/triage-labels.md` and `docs/agents/domain.md` — into `~/.claude/docs/agents/`, so a session carries the contract into repositories that keep no copy of it. `docs/agents/testing.md` is not shipped: it describes this repo's own suite. Both kinds are artifacts for the *target* repo, so they bind to no convention local to this one — which is why the tracker doc names no repository and the `Issue tracker` block above is the only place this repository is named.
+
+The shipped docs are a shadowed default, resolved per file: a repo-local `docs/agents/<file>` wins where the repository has one, and the shipped copy applies only where it does not, so a repository holding one of the three takes the other two from the shipped set. `~/.claude/CLAUDE.md` states that rule to every provisioned session, since neither copy can say which is in force. See `docs/adr/0011-the-shipped-agent-docs-are-a-shadowed-default.md`.
 
 ### Code review
 
