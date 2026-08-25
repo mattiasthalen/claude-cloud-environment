@@ -103,6 +103,55 @@ harness_pre() {
   cat > "${_harness_pre_file}"
 }
 
+# harness_pre_curl_fails <url-glob> <exit-code> <message> [partial-text]
+# Arranges, before the run, a curl that fails exactly the fetches whose
+# arguments match <url-glob> — printing <message> on stderr and exiting
+# <exit-code> — and hands every other invocation back to the harness shim
+# untouched, so the case fails the one fetch it is about and nothing else.
+# With [partial-text], the stub writes that text to the fetch's `-o` target
+# before failing, standing in for the truncated file curl itself leaves behind
+# on a broken transfer.
+#
+# Reaching past the shim to the real curl would be the wrong scaffolding: the
+# other tag-pinned artifacts would stop landing, and the recap count a case
+# asserts on would stop being a statement about one breakage. Every case that
+# shadows the shim wants that same shape, which is why it is written here once
+# rather than copied per case. Calls harness_pre, so the two are alternatives.
+harness_pre_curl_fails() {
+  local glob=$1 code=$2 message=$3 partial=${4:-} partial_block=""
+
+  if [ -n "${partial}" ]; then
+    partial_block=$(
+      cat << PARTIAL
+      for j in "\${!args[@]}"; do
+        if [ "\${args[\$j]}" = "-o" ]; then
+          printf '%s' '${partial}' > "\${args[\$((j + 1))]}"
+        fi
+      done
+PARTIAL
+    )
+  fi
+
+  harness_pre << PRE
+cp /usr/local/bin/curl /usr/local/bin/harness-curl-shim
+cat > /usr/local/bin/curl << 'STUB'
+#!/bin/bash
+args=("\$@")
+for i in "\${!args[@]}"; do
+  case "\${args[\$i]}" in
+    ${glob})
+${partial_block}
+      echo '${message}' >&2
+      exit ${code}
+      ;;
+  esac
+done
+exec /usr/local/bin/harness-curl-shim "\$@"
+STUB
+chmod +x /usr/local/bin/curl
+PRE
+}
+
 # harness_run [args...]
 # Runs environment.sh with the given argument list in a fresh container, then
 # fills HARNESS_STATUS, HARNESS_STDOUT, HARNESS_STDERR and HARNESS_SETTINGS.
