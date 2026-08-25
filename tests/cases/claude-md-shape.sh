@@ -2,8 +2,8 @@
 # After a run, ~/.claude/CLAUDE.md carries every standing rule a provisioned
 # session depends on: the caveman mode it answers in, the standing request for
 # subagents, the note that `/code-review` fans out to a subagent per axis by
-# design, and the instruction to end a turn with an unsettled question in prose.
-# The file's contents are the
+# design, the instruction to end a turn with an unsettled question in prose, and
+# which copy of each agent doc a session is acting on. The file's contents are the
 # contract, the same way settings.json's shape is.
 #
 # The review line is asserted because it exists to survive a session that would
@@ -27,6 +27,18 @@
 # missing while `AskUserQuestion` stays denied, sessions lose the tool and the
 # instruction to ask without it at the same time, and start guessing silently.
 # See docs/adr/0007-the-question-box-goes-prose-replaces-it.md.
+#
+# The agent-docs line is asserted in two halves, and they are asserted together
+# because they answer the same question from opposite ends. The first half is
+# the resolution rule — repo-local `docs/agents/<file>` shadows the shipped
+# `~/.claude/docs/agents/<file>`, per file — which is what stops a session that
+# found one copy from assuming it found the only one. The second half is the
+# summary a session holds when it opens neither copy: that the tracker is
+# GitHub, and the five canonical triage labels. A bullet that kept the rule and
+# lost the summary would send every session to a file for two facts it should
+# already have; one that kept the summary and lost the rule would let a session
+# act on the shipped defaults in a repo that overrode them. Neither half is
+# worth much without the other, so a trim of either fails here.
 # tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
@@ -40,3 +52,8 @@ assert_claude_md_contains 'this line is that request'
 assert_claude_md_contains 'the permission rules are the boundary'
 assert_claude_md_contains '`/code-review` spawns one subagent per axis'
 assert_claude_md_contains 'end the turn with the question in prose'
+assert_claude_md_contains 'a repo-local `docs/agents/<file>` wins if the repository has one'
+assert_claude_md_contains 'otherwise the shipped copy at `~/.claude/docs/agents/<file>` applies'
+assert_claude_md_contains 'Shadowing is per file'
+assert_claude_md_contains 'the tracker is GitHub'
+assert_claude_md_contains '`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`'

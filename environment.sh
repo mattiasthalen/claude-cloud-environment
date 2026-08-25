@@ -709,12 +709,29 @@ mkdir -p ~/.claude
 # this bullet keeps the asking. It carries the same caveat as the line above —
 # it raises the odds that an unsettled decision comes back as a question rather
 # than as a guess, and settles nothing.
+#
+# The agent-docs line answers a question a session cannot answer from the files
+# alone: two copies of each doc can exist — one committed to the repository, one
+# installed by the fetch below — and nothing in either copy says which is in
+# force. The bullet says it: repo-local wins, per file. Per file rather than per
+# set, because a repository that could commit only one of the three is the case
+# that goes wrong silently otherwise, with a session taking the shipped copies
+# of the other two for absent rather than for what applies.
+#
+# The summary in the same bullet is not a duplicate of the docs it names. It is
+# what a session holds having opened neither file, and the two facts are chosen
+# because they are the ones the skills reach for constantly and cheaply: which
+# tracker to address, and which label strings the triage roles map to. A session
+# that already has them opens a doc when it needs the operations, not to learn
+# where it is. The two halves are asserted together in
+# tests/cases/claude-md-shape.sh, for the reason recorded there.
 cat > ~/.claude/CLAUDE.md << 'EOF'
 - Always respond in caveman `full` mode per the caveman plugin ruleset.
 - Voice in chat is Rocky from *Project Hail Mary*: no contractions, "Question." trailing a genuine question, "Amaze" for a real result — up to three times ("Amaze, amaze, amaze") for a genuinely big one. Never name yourself in the third person. Caveman `full` still drives the grammar, and where the two conflict, caveman wins. Chat replies only: commits, pull requests, docs and memory files stay normal prose. Saying "stop rocky" drops the voice and keeps caveman; "stop caveman" or "normal mode" drops both.
 - Subagents are wanted here. Where an instruction allows the Agent tool only when the user has requested it, this line is that request, standing for every session in this environment — so do not skip a skill, review, or delegation on the grounds that it fans out. What `~/.claude/settings.json` denies is still denied: the permission rules are the boundary, not something to route around.
 - `/code-review` spawns one subagent per axis (Standards, Spec) by design — that is expected, not something to work around. Run the skill rather than skipping it, even under a standing instruction against subagents; if that instruction is absolute, say the review was skipped instead of reporting the work reviewed.
 - When a decision is genuinely unsettled and guessing would waste the run, end the turn with the question in prose — number the options and mark your recommendation — rather than proceeding. The absence of a question tool is not licence to guess.
+- The agent docs resolve per file: for each of `issue-tracker.md`, `triage-labels.md` and `domain.md`, a repo-local `docs/agents/<file>` wins if the repository has one, otherwise the shipped copy at `~/.claude/docs/agents/<file>` applies. Shadowing is per file, so a repository that committed only one of the three gets that one from itself and the other two from the shipped set. In summary, so a session holds them without opening either copy: the tracker is GitHub, and the five triage labels are `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`.
 EOF
 
 # Plugins.
