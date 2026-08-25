@@ -1,6 +1,56 @@
 # Issue tracker: GitHub
 
-Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
+Issues and specs live as GitHub issues, in whichever repository the session is
+working in. Infer that repository from the git remote — `git remote -v` in the
+checkout; the `gh` CLI does it automatically when run inside one — and never
+hardcode one here.
+
+## Which surface to use, in order
+
+Every operation below is described as a `gh` command, because that is the
+shortest way to write it. The command is the *operation*, not the transport. Use
+the first of these that is available:
+
+1. **The `gh` CLI**, when it is on the PATH and authenticated.
+2. **The GitHub MCP server tools**, where they cover the operation — reading and
+   writing issues, comments, labels, sub-issues, pull requests, reviews.
+3. **Authenticated REST or GraphQL** against `https://api.github.com`, where
+   they do not.
+
+Some environments (for example Claude Code on the web) have no `gh` on the PATH
+at all, so surfaces 2 and 3 are the whole toolkit there. The conventions below
+still describe *what* to do; only the transport changes.
+
+### Operations no MCP tool covers
+
+These are reachable, and a session that finds no MCP tool for them should reach
+for REST or GraphQL rather than concluding they are impossible:
+
+- **Issue dependencies** — adding and reading blocking edges. REST only; the
+  endpoints are written out in the Blocking bullet under Wayfinding operations
+  below.
+- **The draft and ready mutations** — marking a draft pull request ready for
+  review (`markPullRequestReadyForReview`) and converting one back to a draft
+  (`convertPullRequestToDraft`). GraphQL only, at
+  `https://api.github.com/graphql` with the same token; both take the pull
+  request's `node_id`.
+- **Stack objects** — creating a stack of pull requests and adding a layer to
+  it. REST only; `/swarm` carries the calls it makes, and stacked pull requests
+  are in public preview, so a repository where the stack API does not answer is
+  a normal outcome rather than a fault.
+
+Endpoints are written out here only where they are already known to work. Where
+this doc names an operation without an endpoint, look the endpoint up rather
+than inventing one that reads plausibly.
+
+### When there is no credential for an operation
+
+An operation the session holds no usable credential for is **parked**, with the
+reason stated — the operation, the surface it needs, and what is missing. Do not
+route around it with a substitute that records something different: a `Blocked
+by:` line written into a body is a documented fallback for a tracker without
+dependencies, not a stand-in for a dependency edge the session merely could not
+authenticate for.
 
 ## Conventions
 
@@ -10,26 +60,6 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
-
-Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
-
-### Environments without the `gh` CLI
-
-Some environments (for example Claude Code on the web) have no `gh` CLI on the
-PATH. There, use the GitHub REST API directly — via the GitHub MCP server tools
-where they cover the operation, or authenticated `curl` against
-`https://api.github.com` where they don't. The conventions above still describe
-*what* to do; only the transport changes.
-
-Two operations have no REST endpoint and need GraphQL at
-`https://api.github.com/graphql` with the same token: marking a draft pull
-request ready for review (`markPullRequestReadyForReview`) and converting one
-back to a draft (`convertPullRequestToDraft`). Both take the pull request's
-`node_id`.
-
-Ticket dependencies in particular have no CLI or MCP wrapper, so they are always
-wired through the REST API — see the Blocking bullet under Wayfinding
-operations below.
 
 ## Pull requests as a triage surface
 
