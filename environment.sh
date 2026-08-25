@@ -1250,7 +1250,7 @@ verify_agent_docs() {
   local doc
   local missing=()
 
-  for doc in ${AGENT_DOCS[@]+"${AGENT_DOCS[@]}"}; do
+  for doc in "${AGENT_DOCS[@]}"; do
     [ -s "${AGENT_DOCS_DIR}/${doc}" ] || missing+=("${doc}")
   done
 
