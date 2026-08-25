@@ -208,8 +208,9 @@ what the run left behind into `/out`, and never asserts.
 
 ## The release-tag stand-in
 
-`environment.sh` fetches the artifacts it ships — the skills today, whatever
-else the release carries tomorrow — from its own release tag, and a working tree
+`environment.sh` fetches the artifacts it ships — the swarm skill and the agent
+docs today, whatever else the release carries tomorrow — from its own release
+tag, and a working tree
 is by definition unreleased: the tag its `SCRIPT_VERSION` names does not exist
 on GitHub while the change is being written, so that fetch could only ever 404
 in a container. `tests/container/run-case.sh` shadows `curl` with a shim that
@@ -231,13 +232,19 @@ untouched.
 
 None of those three branches has a case of its own. A case invokes
 `environment.sh` and asserts on what the script did, so the shim is exercised
-only through a step that fetches — `swarm-skill-installs-at-tag-pin` is that
-step today — and a case that arranged a fetch of its own in `harness_pre` would
-be asserting on the harness rather than on the script. The next artifact the
-release ships brings a step, and the step brings the case.
+only through a step that fetches — `swarm-skill-installs-at-tag-pin` and
+`agent-docs-install-at-tag-pin` are those steps today — and a case that arranged
+a fetch of its own in `harness_pre` would be asserting on the harness rather
+than on the script. The next artifact the release ships brings a step, and the
+step brings the case.
 
-The shim is installed before `harness_pre` runs, so a case that needs the fetch
-to fail shadows it again — `swarm-skill-fetch-failure-is-not-fatal` does.
+The shim is installed before `harness_pre` runs, so a case that needs one fetch
+to fail shadows it again — `swarm-skill-fetch-failure-is-not-fatal` and
+`agent-docs-fetch-failure-is-not-fatal` both do. A shadowing case fails only the
+fetch it is about and hands everything else back, so its recap count stays a
+statement about one breakage: it copies the shim aside as
+`/usr/local/bin/harness-curl-shim` first and `exec`s that for every URL it is
+not shadowing, rather than reaching past the shim to the real `curl`.
 
 Keep cases cheap. Failure-path cases are the cheap majority because validation
 failures exit before any install work happens; expensive selections run once.

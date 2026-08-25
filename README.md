@@ -60,21 +60,6 @@ list exists because CLIs are heavy and differ per environment, and a Markdown
 file is neither. A fetch that fails costs one absent slash command and is
 reported in the recap; it does not abort the rest of the setup.
 
-## Agent docs
-
-`docs/agents/` holds the contract a session follows in whatever repository it is
-working in: which issue tracker to reach and how, the triage vocabulary, and
-where domain knowledge lives. The script fetches `issue-tracker.md`,
-`triage-labels.md` and `domain.md` into `~/.claude/docs/agents/` from the same
-immutable tag it was itself fetched at, so a box pinned to a tag keeps the docs
-that tag shipped. Shipping them globally is what gets the contract into
-repositories that cannot commit it, which is why the shipped docs are written to
-name no repository.
-
-Like the skills, they are always installed, are not names the argument list
-accepts, and a fetch that fails is reported in the recap without aborting the
-rest of the setup.
-
 **Which tools an environment uses lives only in that environment's box.** This
 repo keeps no table of who requested what; reading a box is the only way to know
 what that environment gets, and the box is the only place to change it.
@@ -105,9 +90,9 @@ What a bump means when planning a roll across environments:
 | PATCH | A pin bump or a fix. | Existing box text stays valid; re-tag to pick the change up. |
 
 Every change a provisioned session can observe warrants a bump — a tool, a pin,
-a shipped skill or agent doc, or the prose written into `~/.claude/CLAUDE.md`. The tag is the
-only thing that refreshes an environment, so a change that lands without one
-reaches no box, however small it looked in review.
+a shipped skill or agent doc, or the prose written into `~/.claude/CLAUDE.md`.
+The tag is the only thing that refreshes an environment, so a change that lands
+without one reaches no box, however small it looked in review.
 
 Environments may sit on different tags during a roll. Rolling one environment
 first to prove a change and leaving the rest behind is expected — convergence is
