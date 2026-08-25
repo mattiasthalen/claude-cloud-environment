@@ -59,20 +59,18 @@ Three of this repo's agent docs ship the same way — `issue-tracker.md`,
 `triage-labels.md` and `domain.md` from `docs/agents/`, fetched from that same
 tag into `~/.claude/docs/agents/`. They are the contract the engineering skills
 read: which issue tracker to reach and how, what the triage labels are called,
-and where domain knowledge lives. Those skills otherwise expect every repository
-to have committed its own copy, so shipping them means a session carries the
-contract into repositories that keep none. A repository that does keep its own
-is unaffected: resolution is per file, a repo-local `docs/agents/<file>` wins,
-and the memory file every session reads says so. See
-`docs/adr/0011-the-shipped-agent-docs-are-a-shadowed-default.md`.
-`docs/agents/testing.md` is not shipped — it describes this repo's own test
-suite.
+and where domain knowledge lives. A repository that commits its own copy of one
+of them keeps that copy; see
+`docs/adr/0011-the-shipped-agent-docs-are-a-shadowed-default.md` for the rule
+and why it is the one chosen. `docs/agents/testing.md` is not shipped — it
+describes this repo's own test suite.
 
 Skills and agent docs are always installed and are not names the argument list
 accepts: that list exists because CLIs are heavy and differ per environment, and
-a Markdown file is neither. A fetch that fails costs one absent slash command or
-one absent doc and is reported in the recap; it does not abort the rest of the
-setup.
+a Markdown file is neither. A fetch that fails costs only what it could not
+fetch — a skill, or the docs, which install as one step — and is reported once
+in the recap; it does not abort the rest of the setup, though the run itself
+ends by reporting the failure.
 
 **Which tools an environment uses lives only in that environment's box.** This
 repo keeps no table of who requested what; reading a box is the only way to know
