@@ -14,4 +14,4 @@ When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the 
 
 Edit the right-hand column to match whatever vocabulary you actually use.
 
-This table is the place to rename a label, but three other sites name a string from it and have to be visited in the same edit: the **Ready for work** bullet in `issue-tracker.md`, the agent-docs bullet in the `~/.claude/CLAUDE.md` heredoc in `environment.sh`, and the fixed-string assertion in `tests/cases/claude-md-shape.sh` that pins that bullet.
+This table is the place to rename a label. One other shipped doc names a string from it and has to be visited in the same edit: the **Ready for work** bullet in `issue-tracker.md`. A repository that names a label string anywhere of its own — a memory file, a test, a workflow — lists those sites in its own conventions, since they are not sites this table can know about.
