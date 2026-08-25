@@ -167,10 +167,13 @@ for skill in "${HOME}"/.claude/skills/*/SKILL.md; do
 done
 
 # Which agent docs the run left under ~/.claude/docs/agents/, one `NAME PATH`
-# line each, in the same shape as the skills list above. An empty file a failed
-# fetch left behind is not a doc that landed, so size is part of the test.
+# line each, in the same shape as the skills list above. A doc is a regular
+# file: the skills glob names SKILL.md and so cannot match a directory, and this
+# one has to say so itself. An empty file a failed fetch left behind is not a
+# doc that landed either, so size is part of the test.
 : > /out/agent-docs
 for doc in "${HOME}"/.claude/docs/agents/*; do
+  [ -f "${doc}" ] || continue
   [ -s "${doc}" ] || continue
   echo "$(basename "${doc}") ${doc}" >> /out/agent-docs
 done

@@ -294,9 +294,11 @@ assert_skill_absent() {
 # verification row, and a doc fetched from the release tag is only reachable
 # through the tag-pinned URL — the harness curl refuses any other URL under the
 # raw base (see tests/container/run-case.sh).
+# The name is matched as a whole field rather than as a pattern: a doc name
+# carries a `.md`, and a `grep` regex would let that dot match anything.
 assert_agent_doc_installed() {
   local doc=$1
-  printf '%s\n' "${HARNESS_AGENT_DOCS}" | grep -q "^${doc} " ||
+  harness_agent_doc_listed "${doc}" ||
     harness_fail "expected the agent doc '${doc}' present and non-empty after the run, found: ${HARNESS_AGENT_DOCS:-<none>}"
 }
 
@@ -304,9 +306,21 @@ assert_agent_doc_installed() {
 # The negation, for a run whose fetch was arranged to fail.
 assert_agent_doc_absent() {
   local doc=$1
-  printf '%s\n' "${HARNESS_AGENT_DOCS}" | grep -q "^${doc} " &&
+  harness_agent_doc_listed "${doc}" &&
     harness_fail "expected no agent doc '${doc}' after the run, found: ${HARNESS_AGENT_DOCS}"
   return 0
+}
+
+# harness_agent_doc_listed <name>
+# Whether the collected agent docs carry a doc of exactly that name.
+harness_agent_doc_listed() {
+  local doc=$1 name rest
+  while read -r name rest; do
+    if [ "${name}" = "${doc}" ]; then
+      return 0
+    fi
+  done <<< "${HARNESS_AGENT_DOCS}"
+  return 1
 }
 
 # assert_system_git_config <key>

@@ -188,8 +188,8 @@ From `tests/lib.sh`:
 After `harness_run`, `HARNESS_STATUS`, `HARNESS_STDOUT`, `HARNESS_STDERR`,
 `HARNESS_SETTINGS`, `HARNESS_CLAUDE_MD`, `HARNESS_CLAUDE_DOTFILES`,
 `HARNESS_INSTALLED_PLUGINS`, `HARNESS_TOOLS`, `HARNESS_SKILLS`,
-`HARNESS_AGENT_DOCS` and `HARNESS_PACKAGES` hold the raw result if a case needs something the assertions
-above do not cover. Every assertion failure prints the case name, the
+`HARNESS_AGENT_DOCS` and `HARNESS_PACKAGES` hold the raw result if a case needs
+something the assertions above do not cover. Every assertion failure prints the case name, the
 invocation, the exit code and the script's stdout and stderr.
 
 To assert on some other container state, extend the collection block at the end
@@ -219,11 +219,12 @@ asserted by behaviour rather than by reading the script. Every URL outside the
 raw base — every pinned CLI download among them — goes to the real `curl`
 untouched.
 
-Three cases pin those three branches directly: `tag-pinned-fetch-of-any-path-is-served`,
-`untagged-fetch-under-the-raw-base-is-refused` and
-`fetch-outside-the-raw-base-reaches-real-curl`. The latter two stub the real
-`curl` to serve whatever it is asked for, so what they observe is the shim's own
-decision rather than what a host on the internet happened to answer.
+None of those three branches has a case of its own. A case invokes
+`environment.sh` and asserts on what the script did, so the shim is exercised
+only through a step that fetches — `swarm-skill-installs-at-tag-pin` is that
+step today — and a case that arranged a fetch of its own in `harness_pre` would
+be asserting on the harness rather than on the script. The next artifact the
+release ships brings a step, and the step brings the case.
 
 The shim is installed before `harness_pre` runs, so a case that needs the fetch
 to fail shadows it again — `swarm-skill-fetch-failure-is-not-fatal` does.
