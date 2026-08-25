@@ -4,10 +4,11 @@
 # three, the verification block says so in one row, and the files are in the
 # container afterwards.
 #
-# The row is also the pin assertion: the harness serves files for exactly the
-# prefix built from `refs/tags/v${SCRIPT_VERSION}/`, and refuses any other URL
-# under the raw base — so a doc that landed could only have come from the
-# tag-pinned URL.
+# The row is also the pin assertion, and what makes it one is the harness shim:
+# it serves the working tree at the pinned tag and refuses every other ref under
+# the raw base, so a doc that landed could only have come from the tag-pinned
+# URL. The contract is stated once, in docs/agents/testing.md under "The
+# release-tag stand-in"; this case asserts on the script, not on the shim.
 # tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 

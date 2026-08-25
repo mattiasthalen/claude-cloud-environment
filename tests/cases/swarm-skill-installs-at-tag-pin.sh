@@ -4,9 +4,12 @@
 # verification block says so in one row, and the file is in the container
 # afterwards.
 #
-# The row is also the pin assertion: the harness serves a skill file for exactly
-# one URL, the one built from `refs/tags/v${SCRIPT_VERSION}/`, and refuses any
-# other — so a skill that landed could only have come from the tag-pinned URL.
+# The row is also the pin assertion, and what makes it one is the harness shim:
+# it serves the working tree at the pinned tag and refuses every other ref under
+# the raw base, so a skill that landed could only have come from the tag-pinned
+# URL. The contract is stated once, in docs/agents/testing.md under "The
+# release-tag stand-in"; restating it here is how the two tag-pin cases came to
+# describe the same shim in words that disagreed.
 # tier: quick
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 

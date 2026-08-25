@@ -26,8 +26,10 @@ the other two for absent rather than for what applies.
 
 Nothing in either copy states this rule — a file cannot say it is the one being
 shadowed — so `~/.claude/CLAUDE.md` states it, in a bullet every session reads
-first. `AGENTS.md` and `CONTEXT.md` carry it too, since the memory file is an
-artifact this repo emits rather than a place it keeps its conventions.
+first. `AGENTS.md`, `CONTEXT.md` and `README.md` carry it too, since the memory
+file is an artifact this repo emits rather than a place it keeps its
+conventions: the first two for a session working here, the third for a reader
+deciding whether to provision a box at all.
 
 ## Considered options
 
