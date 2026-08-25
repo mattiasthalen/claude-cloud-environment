@@ -11,8 +11,10 @@
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib.sh"
 
 harness_pre <<'PRE'
-# Shadow the harness curl, which would otherwise serve the skill. Everything
-# that is not a skill file still goes to the real one.
+# Shadow the harness curl, which would otherwise serve the skill. This stub is
+# narrower than the shim it replaces: it fails a skill file and hands everything
+# else to the real curl, including the tag-pinned URLs the shim would have
+# served from the working tree.
 cat > /usr/local/bin/curl <<'STUB'
 #!/bin/bash
 for arg in "$@"; do
