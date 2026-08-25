@@ -3,7 +3,8 @@
 #
 # Contract with the harness, all under /harness (read-only) and /out (writable):
 #   /harness/environment.sh  the script under test
-#   /harness/skills/         the skill sources the working tree would ship
+#   /harness/repo/           the working tree, which the curl shim serves as the
+#                            contents of the release tag
 #   /harness/pre.sh          optional, sourced-as-run before the script, so a
 #                            case can arrange container state (e.g. shadow a
 #                            binary) without the script gaining a test hook
@@ -18,6 +19,8 @@
 #                            left it, if any
 #   /out/tools               the tools the run left on PATH
 #   /out/skills              the skills the run left installed
+#   /out/agent-docs          the agent docs the run left under
+#                            ~/.claude/docs/agents/
 #   /out/packages            the apt packages the container has
 #   /out/gitconfig-system    /etc/gitconfig as the run left it
 #   /out/lfs-blob            the committed form of an LFS-tracked file
@@ -30,21 +33,22 @@ set -u
 # ---------------------------------------------------------------------------
 # The release-tag stand-in.
 #
-# The script fetches the skills it ships from its own release tag, and the
+# The script fetches the artifacts it ships from its own release tag, and the
 # working tree under test is by definition unreleased: the tag its
 # SCRIPT_VERSION names does not exist on GitHub yet, so that fetch could only
 # ever 404 in here. This shim stands in for the tag the release will cut, and
 # serves what that tag will carry — the working tree's own copy of the file,
-# mounted at /harness/skills.
+# mounted read-only at /harness/repo.
 #
-# It answers exactly one URL: the tag-pinned one built from the script's own
-# SCRIPT_VERSION. Any other URL for a skill file — a branch ref, another tag —
+# It serves any path under the tag-pinned prefix built from the script's own
+# SCRIPT_VERSION, so a step that ships a file from outside skills/ needs no
+# harness change. Any other URL under the raw base — a branch ref, another tag —
 # is refused rather than passed through to the network, where a branch ref would
-# happily succeed. So a case that sees a skill land has thereby seen the pinned
+# happily succeed. So a case that sees a file land has thereby seen the pinned
 # URL, and the pin is asserted by behaviour rather than by reading the script.
-# Every URL that is not a skill file goes to the real curl untouched.
+# Every URL outside the raw base goes to the real curl untouched.
 #
-# It is installed before /harness/pre.sh runs, so a case that needs the fetch to
+# It is installed before /harness/pre.sh runs, so a case that needs a fetch to
 # fail can shadow it again.
 # ---------------------------------------------------------------------------
 
@@ -52,16 +56,16 @@ script_version=$(sed -n 's/^SCRIPT_VERSION=//p' /harness/environment.sh | head -
 command -v curl > /tmp/harness-real-curl
 harness_raw_base=https://raw.githubusercontent.com/mattiasthalen/claude-cloud-environment
 printf '%s\n' "${harness_raw_base}" > /tmp/harness-raw-base
-printf '%s\n' "${harness_raw_base}/refs/tags/v${script_version}/skills" > /tmp/harness-skills-url
+printf '%s\n' "${harness_raw_base}/refs/tags/v${script_version}" > /tmp/harness-tag-url
 
 cat > /usr/local/bin/curl <<'SHIM'
 #!/bin/bash
-# Harness curl. Serves the working tree's skill sources for the tag-pinned URL
-# and delegates everything else.
+# Harness curl. Serves the working tree for any tag-pinned URL, refuses any
+# other URL under the raw base, and delegates everything else.
 set -u
 
 real_curl=$(cat /tmp/harness-real-curl)
-skills_url=$(cat /tmp/harness-skills-url)
+tag_url=$(cat /tmp/harness-tag-url)
 raw_base=$(cat /tmp/harness-raw-base)
 
 url=""
@@ -77,28 +81,28 @@ for arg in "$@"; do
   prev="${arg}"
 done
 
-# Only this repo's own skill sources are intercepted. A skill file fetched from
-# anywhere else is somebody else's business and goes to the real curl, so the
-# shim cannot fail a step it was never meant to stand in for.
+# Only this repository's own raw base is intercepted. Anything else is somebody
+# else's business and goes to the real curl, so the shim cannot fail a step it
+# was never meant to stand in for.
 case "${url}" in
-  "${skills_url}"/*) ;;
-  "${raw_base}"/*/skills/*)
-    echo "harness curl: refusing a skill URL that is not tag-pinned: ${url}" >&2
+  "${tag_url}"/*) ;;
+  "${raw_base}"/*)
+    echo "harness curl: refusing a URL that is not tag-pinned: ${url}" >&2
     exit 22
     ;;
   *) exec "${real_curl}" "$@" ;;
 esac
 
-skill_source="/harness/skills/${url#"${skills_url}"/}"
-if [ ! -f "${skill_source}" ]; then
-  echo "harness curl: no such skill source in the working tree: ${skill_source}" >&2
+source_file="/harness/repo/${url#"${tag_url}"/}"
+if [ ! -f "${source_file}" ]; then
+  echo "harness curl: no such file in the working tree: ${source_file}" >&2
   exit 22
 fi
 
 if [ -n "${dest}" ]; then
-  cp "${skill_source}" "${dest}"
+  cp "${source_file}" "${dest}"
 else
-  cat "${skill_source}"
+  cat "${source_file}"
 fi
 SHIM
 chmod +x /usr/local/bin/curl
@@ -160,6 +164,15 @@ for skill in "${HOME}"/.claude/skills/*/SKILL.md; do
   [ -s "${skill}" ] || continue
   name=$(basename "$(dirname "${skill}")")
   echo "${name} ${skill}" >> /out/skills
+done
+
+# Which agent docs the run left under ~/.claude/docs/agents/, one `NAME PATH`
+# line each, in the same shape as the skills list above. An empty file a failed
+# fetch left behind is not a doc that landed, so size is part of the test.
+: > /out/agent-docs
+for doc in "${HOME}"/.claude/docs/agents/*; do
+  [ -s "${doc}" ] || continue
+  echo "$(basename "${doc}") ${doc}" >> /out/agent-docs
 done
 
 # The apt version of every installed package, one `NAME VERSION` line each. The
