@@ -103,6 +103,13 @@ harness_pre() {
   cat > "${_harness_pre_file}"
 }
 
+# _harness_squote <text>
+# <text> as a single-quoted shell literal, apostrophes and all, for splicing
+# into a script this file generates. Internal to the helpers below.
+_harness_squote() {
+  printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
 # harness_pre_curl_fails <url-glob> <exit-code> <message> [partial-text]
 # Arranges, before the run, a curl that fails exactly the fetches whose
 # arguments match <url-glob> — printing <message> on stderr and exiting
@@ -110,7 +117,8 @@ harness_pre() {
 # untouched, so the case fails the one fetch it is about and nothing else.
 # With [partial-text], the stub writes that text to the fetch's `-o` target
 # before failing, standing in for the truncated file curl itself leaves behind
-# on a broken transfer.
+# on a broken transfer. <message> and <partial-text> are single-quoted into the
+# stub, so a caller may pass either with an apostrophe in it.
 #
 # Reaching past the shim to the real curl would be the wrong scaffolding: the
 # other tag-pinned artifacts would stop landing, and the recap count a case
@@ -120,12 +128,14 @@ harness_pre() {
 harness_pre_curl_fails() {
   local glob=$1 code=$2 message=$3 partial=${4:-} partial_block=""
 
+  message=$(_harness_squote "${message}")
+
   if [ -n "${partial}" ]; then
     partial_block=$(
       cat << PARTIAL
       for j in "\${!args[@]}"; do
         if [ "\${args[\$j]}" = "-o" ]; then
-          printf '%s' '${partial}' > "\${args[\$((j + 1))]}"
+          printf '%s' $(_harness_squote "${partial}") > "\${args[\$((j + 1))]}"
         fi
       done
 PARTIAL
@@ -141,7 +151,7 @@ for i in "\${!args[@]}"; do
   case "\${args[\$i]}" in
     ${glob})
 ${partial_block}
-      echo '${message}' >&2
+      echo ${message} >&2
       exit ${code}
       ;;
   esac
